@@ -28,212 +28,207 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.bRefresh = new System.Windows.Forms.Button();
-            this.labelXY = new System.Windows.Forms.Label();
-            this.bZoomIn = new System.Windows.Forms.Button();
-            this.bZoomOut = new System.Windows.Forms.Button();
-            this.bMoveDown = new System.Windows.Forms.Button();
-            this.bMoveUp = new System.Windows.Forms.Button();
-            this.bMoveLeft = new System.Windows.Forms.Button();
-            this.bMoveRight = new System.Windows.Forms.Button();
-            this.bFullExtent = new System.Windows.Forms.Button();
-            this.checkBox1 = new System.Windows.Forms.CheckBox();
-            this.bReadShapefile = new System.Windows.Forms.Button();
-            this.bOpenAttribute = new System.Windows.Forms.Button();
-            this.bReadMyFile = new System.Windows.Forms.Button();
-            this.bWriteMyFile = new System.Windows.Forms.Button();
+            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.tabControl1 = new System.Windows.Forms.TabControl();
+            this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.explore_button = new System.Windows.Forms.Button();
+            this.button_ReadShp = new System.Windows.Forms.Button();
+            this.button_FullExtent = new System.Windows.Forms.Button();
+            this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.treeView1 = new System.Windows.Forms.TreeView();
+            this.mapBox = new System.Windows.Forms.PictureBox();
+            this.statusStrip1.SuspendLayout();
+            this.tabControl1.SuspendLayout();
+            this.tabPage1.SuspendLayout();
+            this.flowLayoutPanel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
+            this.splitContainer1.Panel1.SuspendLayout();
+            this.splitContainer1.Panel2.SuspendLayout();
+            this.splitContainer1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.SuspendLayout();
             // 
-            // bRefresh
+            // statusStrip1
             // 
-            this.bRefresh.Location = new System.Drawing.Point(151, 16);
-            this.bRefresh.Name = "bRefresh";
-            this.bRefresh.Size = new System.Drawing.Size(120, 29);
-            this.bRefresh.TabIndex = 4;
-            this.bRefresh.Text = "重绘";
-            this.bRefresh.UseVisualStyleBackColor = true;
-            this.bRefresh.Click += new System.EventHandler(this.bRefresh_Click);
+            this.statusStrip1.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripStatusLabel1});
+            this.statusStrip1.Location = new System.Drawing.Point(0, 987);
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(1706, 31);
+            this.statusStrip1.TabIndex = 0;
+            this.statusStrip1.Text = "statusStrip1";
             // 
-            // labelXY
+            // toolStripStatusLabel1
             // 
-            this.labelXY.AutoSize = true;
-            this.labelXY.Font = new System.Drawing.Font("宋体", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.labelXY.Location = new System.Drawing.Point(277, 20);
-            this.labelXY.Name = "labelXY";
-            this.labelXY.Size = new System.Drawing.Size(82, 21);
-            this.labelXY.TabIndex = 7;
-            this.labelXY.Text = "label5";
+            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(114, 24);
+            this.toolStripStatusLabel1.Text = "Coordinates";
             // 
-            // bZoomIn
+            // tabControl1
             // 
-            this.bZoomIn.Location = new System.Drawing.Point(477, 16);
-            this.bZoomIn.Name = "bZoomIn";
-            this.bZoomIn.Size = new System.Drawing.Size(53, 29);
-            this.bZoomIn.TabIndex = 3;
-            this.bZoomIn.Text = "放大";
-            this.bZoomIn.UseVisualStyleBackColor = true;
-            this.bZoomIn.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.tabControl1.Controls.Add(this.tabPage1);
+            this.tabControl1.Controls.Add(this.tabPage2);
+            this.tabControl1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.tabControl1.Font = new System.Drawing.Font("思源宋体 CN SemiBold", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.tabControl1.Location = new System.Drawing.Point(0, 0);
+            this.tabControl1.Name = "tabControl1";
+            this.tabControl1.SelectedIndex = 0;
+            this.tabControl1.Size = new System.Drawing.Size(1706, 120);
+            this.tabControl1.TabIndex = 1;
             // 
-            // bZoomOut
+            // tabPage1
             // 
-            this.bZoomOut.Location = new System.Drawing.Point(536, 16);
-            this.bZoomOut.Name = "bZoomOut";
-            this.bZoomOut.Size = new System.Drawing.Size(53, 29);
-            this.bZoomOut.TabIndex = 3;
-            this.bZoomOut.Text = "缩小";
-            this.bZoomOut.UseVisualStyleBackColor = true;
-            this.bZoomOut.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.tabPage1.Controls.Add(this.flowLayoutPanel1);
+            this.tabPage1.Location = new System.Drawing.Point(4, 38);
+            this.tabPage1.Name = "tabPage1";
+            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage1.Size = new System.Drawing.Size(1698, 78);
+            this.tabPage1.TabIndex = 0;
+            this.tabPage1.Text = "地图操作";
+            this.tabPage1.UseVisualStyleBackColor = true;
             // 
-            // bMoveDown
+            // flowLayoutPanel1
             // 
-            this.bMoveDown.Location = new System.Drawing.Point(654, 16);
-            this.bMoveDown.Name = "bMoveDown";
-            this.bMoveDown.Size = new System.Drawing.Size(53, 29);
-            this.bMoveDown.TabIndex = 3;
-            this.bMoveDown.Text = "向下";
-            this.bMoveDown.UseVisualStyleBackColor = true;
-            this.bMoveDown.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.flowLayoutPanel1.Controls.Add(this.explore_button);
+            this.flowLayoutPanel1.Controls.Add(this.button_ReadShp);
+            this.flowLayoutPanel1.Controls.Add(this.button_FullExtent);
+            this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.flowLayoutPanel1.Location = new System.Drawing.Point(3, 3);
+            this.flowLayoutPanel1.Name = "flowLayoutPanel1";
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(1692, 72);
+            this.flowLayoutPanel1.TabIndex = 0;
             // 
-            // bMoveUp
+            // explore_button
             // 
-            this.bMoveUp.Location = new System.Drawing.Point(595, 16);
-            this.bMoveUp.Name = "bMoveUp";
-            this.bMoveUp.Size = new System.Drawing.Size(53, 29);
-            this.bMoveUp.TabIndex = 3;
-            this.bMoveUp.Text = "向上";
-            this.bMoveUp.UseVisualStyleBackColor = true;
-            this.bMoveUp.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.explore_button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.explore_button.Location = new System.Drawing.Point(3, 3);
+            this.explore_button.Name = "explore_button";
+            this.explore_button.Size = new System.Drawing.Size(113, 69);
+            this.explore_button.TabIndex = 0;
+            this.explore_button.Text = "Explore";
+            this.explore_button.UseVisualStyleBackColor = true;
+            this.explore_button.Click += new System.EventHandler(this.explore_button_Click);
             // 
-            // bMoveLeft
+            // button_ReadShp
             // 
-            this.bMoveLeft.Location = new System.Drawing.Point(713, 16);
-            this.bMoveLeft.Name = "bMoveLeft";
-            this.bMoveLeft.Size = new System.Drawing.Size(53, 29);
-            this.bMoveLeft.TabIndex = 3;
-            this.bMoveLeft.Text = "向左";
-            this.bMoveLeft.UseVisualStyleBackColor = true;
-            this.bMoveLeft.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.button_ReadShp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.button_ReadShp.Location = new System.Drawing.Point(122, 3);
+            this.button_ReadShp.Name = "button_ReadShp";
+            this.button_ReadShp.Size = new System.Drawing.Size(135, 69);
+            this.button_ReadShp.TabIndex = 1;
+            this.button_ReadShp.Text = "读取Shapefile";
+            this.button_ReadShp.UseVisualStyleBackColor = true;
+            this.button_ReadShp.Click += new System.EventHandler(this.button_ReadShp_Click);
             // 
-            // bMoveRight
+            // button_FullExtent
             // 
-            this.bMoveRight.Location = new System.Drawing.Point(772, 16);
-            this.bMoveRight.Name = "bMoveRight";
-            this.bMoveRight.Size = new System.Drawing.Size(53, 29);
-            this.bMoveRight.TabIndex = 3;
-            this.bMoveRight.Text = "向右";
-            this.bMoveRight.UseVisualStyleBackColor = true;
-            this.bMoveRight.Click += new System.EventHandler(this.ExploreButton_Click);
+            this.button_FullExtent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.button_FullExtent.Location = new System.Drawing.Point(263, 3);
+            this.button_FullExtent.Name = "button_FullExtent";
+            this.button_FullExtent.Size = new System.Drawing.Size(113, 69);
+            this.button_FullExtent.TabIndex = 2;
+            this.button_FullExtent.Text = "全图";
+            this.button_FullExtent.UseVisualStyleBackColor = true;
+            this.button_FullExtent.Click += new System.EventHandler(this.button_FullExtent_Click);
             // 
-            // bFullExtent
+            // tabPage2
             // 
-            this.bFullExtent.Location = new System.Drawing.Point(860, 16);
-            this.bFullExtent.Name = "bFullExtent";
-            this.bFullExtent.Size = new System.Drawing.Size(53, 29);
-            this.bFullExtent.TabIndex = 3;
-            this.bFullExtent.Text = "全图";
-            this.bFullExtent.UseVisualStyleBackColor = true;
-            this.bFullExtent.Click += new System.EventHandler(this.bFullExtent_Click);
+            this.tabPage2.Location = new System.Drawing.Point(4, 38);
+            this.tabPage2.Name = "tabPage2";
+            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage2.Size = new System.Drawing.Size(1698, 78);
+            this.tabPage2.TabIndex = 1;
+            this.tabPage2.Text = "空间分析";
+            this.tabPage2.UseVisualStyleBackColor = true;
             // 
-            // checkBox1
+            // splitContainer1
             // 
-            this.checkBox1.AutoSize = true;
-            this.checkBox1.Font = new System.Drawing.Font("宋体", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.checkBox1.Location = new System.Drawing.Point(26, 62);
-            this.checkBox1.Name = "checkBox1";
-            this.checkBox1.Size = new System.Drawing.Size(118, 24);
-            this.checkBox1.TabIndex = 8;
-            this.checkBox1.Text = "checkBox1";
-            this.checkBox1.UseVisualStyleBackColor = true;
-            this.checkBox1.CheckedChanged += new System.EventHandler(this.checkBox1_CheckedChanged);
+            this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer1.Location = new System.Drawing.Point(0, 120);
+            this.splitContainer1.Name = "splitContainer1";
             // 
-            // bReadShapefile
+            // splitContainer1.Panel1
             // 
-            this.bReadShapefile.Location = new System.Drawing.Point(151, 57);
-            this.bReadShapefile.Name = "bReadShapefile";
-            this.bReadShapefile.Size = new System.Drawing.Size(120, 29);
-            this.bReadShapefile.TabIndex = 4;
-            this.bReadShapefile.Text = "读Shapefile";
-            this.bReadShapefile.UseVisualStyleBackColor = true;
-            this.bReadShapefile.Click += new System.EventHandler(this.bReadShapefile_Click);
+            this.splitContainer1.Panel1.Controls.Add(this.treeView1);
             // 
-            // bOpenAttribute
+            // splitContainer1.Panel2
             // 
-            this.bOpenAttribute.Location = new System.Drawing.Point(294, 57);
-            this.bOpenAttribute.Name = "bOpenAttribute";
-            this.bOpenAttribute.Size = new System.Drawing.Size(120, 29);
-            this.bOpenAttribute.TabIndex = 4;
-            this.bOpenAttribute.Text = "打开属性窗口";
-            this.bOpenAttribute.UseVisualStyleBackColor = true;
-            this.bOpenAttribute.Click += new System.EventHandler(this.bOpenAttribute_Click);
+            this.splitContainer1.Panel2.Controls.Add(this.mapBox);
+            this.splitContainer1.Size = new System.Drawing.Size(1706, 867);
+            this.splitContainer1.SplitterDistance = 282;
+            this.splitContainer1.TabIndex = 2;
             // 
-            // bReadMyFile
+            // treeView1
             // 
-            this.bReadMyFile.Location = new System.Drawing.Point(445, 57);
-            this.bReadMyFile.Name = "bReadMyFile";
-            this.bReadMyFile.Size = new System.Drawing.Size(120, 29);
-            this.bReadMyFile.TabIndex = 4;
-            this.bReadMyFile.Text = "读myfile";
-            this.bReadMyFile.UseVisualStyleBackColor = true;
-            this.bReadMyFile.Click += new System.EventHandler(this.bReadMyFile_Click);
+            this.treeView1.AllowDrop = true;
+            this.treeView1.BackColor = System.Drawing.SystemColors.Menu;
+            this.treeView1.CheckBoxes = true;
+            this.treeView1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeView1.HideSelection = false;
+            this.treeView1.Location = new System.Drawing.Point(0, 0);
+            this.treeView1.Name = "treeView1";
+            this.treeView1.Size = new System.Drawing.Size(282, 867);
+            this.treeView1.TabIndex = 0;
             // 
-            // bWriteMyFile
+            // mapBox
             // 
-            this.bWriteMyFile.Location = new System.Drawing.Point(587, 57);
-            this.bWriteMyFile.Name = "bWriteMyFile";
-            this.bWriteMyFile.Size = new System.Drawing.Size(120, 29);
-            this.bWriteMyFile.TabIndex = 4;
-            this.bWriteMyFile.Text = "写myfile";
-            this.bWriteMyFile.UseVisualStyleBackColor = true;
-            this.bWriteMyFile.Click += new System.EventHandler(this.bWriteMyFile_Click);
+            this.mapBox.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.mapBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapBox.Location = new System.Drawing.Point(0, 0);
+            this.mapBox.Name = "mapBox";
+            this.mapBox.Size = new System.Drawing.Size(1420, 867);
+            this.mapBox.TabIndex = 0;
+            this.mapBox.TabStop = false;
+            this.mapBox.SizeChanged += new System.EventHandler(this.mapBox_SizeChanged);
+            this.mapBox.Paint += new System.Windows.Forms.PaintEventHandler(this.mapBox_Paint);
+            this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
+            this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
+            this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
             // 
             // FormMap
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 18F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(955, 450);
-            this.Controls.Add(this.checkBox1);
-            this.Controls.Add(this.labelXY);
-            this.Controls.Add(this.bOpenAttribute);
-            this.Controls.Add(this.bWriteMyFile);
-            this.Controls.Add(this.bReadMyFile);
-            this.Controls.Add(this.bReadShapefile);
-            this.Controls.Add(this.bRefresh);
-            this.Controls.Add(this.bFullExtent);
-            this.Controls.Add(this.bMoveRight);
-            this.Controls.Add(this.bMoveLeft);
-            this.Controls.Add(this.bMoveUp);
-            this.Controls.Add(this.bMoveDown);
-            this.Controls.Add(this.bZoomOut);
-            this.Controls.Add(this.bZoomIn);
+            this.ClientSize = new System.Drawing.Size(1706, 1018);
+            this.Controls.Add(this.splitContainer1);
+            this.Controls.Add(this.tabControl1);
+            this.Controls.Add(this.statusStrip1);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "FormMap";
             this.Text = "Form1";
-            this.SizeChanged += new System.EventHandler(this.FormMap_SizeChanged);
-            this.Paint += new System.Windows.Forms.PaintEventHandler(this.FormMap_Paint);
-            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.FormMap_MouseClick);
-            this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.FormMap_MouseDown);
-            this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.FormMap_MouseMove);
-            this.MouseUp += new System.Windows.Forms.MouseEventHandler(this.FormMap_MouseUp);
-            this.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.FormMap_MouseWheel);
+            this.statusStrip1.ResumeLayout(false);
+            this.statusStrip1.PerformLayout();
+            this.tabControl1.ResumeLayout(false);
+            this.tabPage1.ResumeLayout(false);
+            this.flowLayoutPanel1.ResumeLayout(false);
+            this.splitContainer1.Panel1.ResumeLayout(false);
+            this.splitContainer1.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
+            this.splitContainer1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
         }
 
         #endregion
-        private System.Windows.Forms.Button bRefresh;
-        private System.Windows.Forms.Label labelXY;
-        private System.Windows.Forms.Button bZoomIn;
-        private System.Windows.Forms.Button bZoomOut;
-        private System.Windows.Forms.Button bMoveDown;
-        private System.Windows.Forms.Button bMoveUp;
-        private System.Windows.Forms.Button bMoveLeft;
-        private System.Windows.Forms.Button bMoveRight;
-        private System.Windows.Forms.Button bFullExtent;
-        private System.Windows.Forms.CheckBox checkBox1;
-        private System.Windows.Forms.Button bReadShapefile;
-        private System.Windows.Forms.Button bOpenAttribute;
-        private System.Windows.Forms.Button bReadMyFile;
-        private System.Windows.Forms.Button bWriteMyFile;
+
+        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
+        private System.Windows.Forms.TabControl tabControl1;
+        private System.Windows.Forms.TabPage tabPage1;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
+        private System.Windows.Forms.TabPage tabPage2;
+        private System.Windows.Forms.SplitContainer splitContainer1;
+        private System.Windows.Forms.Button explore_button;
+        private System.Windows.Forms.TreeView treeView1;
+        private System.Windows.Forms.PictureBox mapBox;
+        private System.Windows.Forms.Button button_ReadShp;
+        private System.Windows.Forms.Button button_FullExtent;
     }
 }
 

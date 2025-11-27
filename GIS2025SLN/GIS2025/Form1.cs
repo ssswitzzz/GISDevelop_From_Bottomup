@@ -13,129 +13,76 @@ namespace GIS2025
 {
     public partial class FormMap : Form
     {
-        //GIS数据库，虽然只有一个图层
-        XVectorLayer layer;
-
+        // GIS核心变量
+        List<XVectorLayer> layers = new List<XVectorLayer>();
         XView view = null;
-
         Bitmap backwindow;
 
+        // 交互状态变量
         Point MouseDownLocation, MouseMovingLocation;
         XExploreActions currentMouseAction = XExploreActions.noaction;
 
         public FormMap()
         {
             InitializeComponent();
-            DoubleBuffered = true;
+            mapBox.MouseWheel += mapBox_MouseWheel;
+            // 手动订阅 TreeView 的事件
+            // 【重要】现在的 View 大小要根据 mapBox 来定，而不是整个窗口
+            // 请确保你设计视图里中间那个白色的控件名字叫 mapBox
+            view = new XView(new XExtent(0, 1, 0, 1), mapBox.ClientRectangle);
+            List<XVectorLayer> layers = new List<XVectorLayer>();
+            // 初始化一个空的图层防止报错
 
-            view = new XView(new XExtent(0,1,0,1), ClientRectangle);
-
-            layer = new XVectorLayer("point_layer", SHAPETYPE.point);
         }
-
-        private void FormMap_MouseClick(object sender, MouseEventArgs e)
-        {
-            //XVertex onevertex =view.ToMapVertex(e.Location);
-
-            //double mindistance = Double.MaxValue;
-            //int findid = -1;
-            //for (int i = 0; i <layer.FeatureCount(); i++)
-            //{
-            //    double distance = layer.GetFeature(i).Distance(onevertex);
-            //    if (distance < mindistance)
-            //    {
-            //        mindistance = distance;
-            //        findid = i;
-            //    }
-            //}
-
-            //XVertex anotherVertex = view.ToMapVertex(new Point(e.X+3, e.Y + 3));
-
-            //double minClickDistance=onevertex.Distance(anotherVertex);
-
-            //if (findid == -1)
-            //{
-            //    MessageBox.Show("先添加，再点击！");
-            //}
-            //else if (mindistance> minClickDistance)
-            //{
-            //    MessageBox.Show("太远了！");
-            //}
-            //else
-            //{
-            //    MessageBox.Show("找到了：" + layer.GetFeature(findid).getAttribute(0));
-            //}
-        }
-
         private void UpdateMap()
         {
-            //如果地图窗口被最小化了，就不用绘制了
-            if (ClientRectangle.Width==0|| ClientRectangle.Height == 0) return;
-            //更新view，以确保其地图窗口尺寸是正确的
-            view.UpdateMapWindow(ClientRectangle);
-            //如果背景窗口不为空，则先清除，回收内存资源
+            if (view == null) return;
+            // 如果 mapBox 还没准备好，就不画
+            if (mapBox.Width == 0 || mapBox.Height == 0) return;
+
+            // 1. 更新视图范围，告诉 View 现在画布有多大
+            view.UpdateMapWindow(mapBox.ClientRectangle);
+
+            // 2. 重新生成双缓冲图片 (backwindow)
             if (backwindow != null) backwindow.Dispose();
-            //根据最新的地图窗口尺寸建立背景窗口
-            backwindow = new Bitmap(ClientRectangle.Width, ClientRectangle.Height);
-            //在背景窗口上绘图
+            backwindow = new Bitmap(mapBox.Width, mapBox.Height);
+
+            // 3. 在内存里作画
             Graphics g = Graphics.FromImage(backwindow);
-            //清空窗口
-            g.FillRectangle(new SolidBrush(Color.Gray), ClientRectangle);
-            //g.Clear(Color.White);
-            //绘制空间对象
-            layer.LabelOrNot = checkBox1.Checked;
-            layer.draw(g, view);
-            //回收绘图工具
-            g.Dispose();
-            //重绘前景窗口
-            Invalidate();
-        }
-
-        private void bRefresh_Click(object sender, EventArgs e)
-        {
-            UpdateMap();
-        }
-
-        private void FormMap_SizeChanged(object sender, EventArgs e)
-        {
-            UpdateMap();
-        }
-
-        private void FormMap_MouseMove(object sender, MouseEventArgs e)
-        {
-            XVertex mapVertex=view.ToMapVertex(e.Location);
-            string xy=mapVertex.x.ToString("f2")+","+mapVertex.y.ToString("f2");
-            labelXY.Text = xy;
-
-            MouseMovingLocation = e.Location;
-            if (currentMouseAction == XExploreActions.zoominbybox ||
-                currentMouseAction == XExploreActions.pan||
-                currentMouseAction == XExploreActions.select)
+            g.Clear(Color.White); // 背景色设为白色
+            foreach (XVectorLayer layer in layers)
             {
-                Invalidate();
+                // 只有当图层可见时才画 (预留功能，配合TreeView前面的勾选框)
+                // if (layer.Visible) 
+                layer.draw(g, view);
             }
+
+            // 绘制图层
+            // layer.LabelOrNot = checkBox1.Checked; // 如果你删了checkbox，这句要注释掉
+            layers[0].draw(g, view);
+
+            g.Dispose();
+
+            // 4. 通知 mapBox 重绘自己 (触发 mapBox_Paint)
+            mapBox.Invalidate();
         }
 
-        private void bFullExtent_Click(object sender, EventArgs e)
-        {
-            view.Update(
-                new XExtent(layer.Extent),
-                ClientRectangle);
-            UpdateMap();
-        }
-
-        private void FormMap_Paint(object sender, PaintEventArgs e)
+        // 这个事件要绑定到 mapBox 的 Paint 事件上！不是 Form 的 Paint！
+        private void mapBox_Paint(object sender, PaintEventArgs e)
         {
             if (backwindow == null) return;
+
+            // 处理动态交互的绘制（比如拖动时的残影，或者拉框的红框）
             if (currentMouseAction == XExploreActions.pan)
             {
+                // 漫游时：画出偏移后的图片
                 e.Graphics.DrawImage(backwindow,
                     MouseMovingLocation.X - MouseDownLocation.X,
                     MouseMovingLocation.Y - MouseDownLocation.Y);
             }
-            else if (currentMouseAction == XExploreActions.zoominbybox||
-                currentMouseAction == XExploreActions.select)
+            else if (currentMouseAction == XExploreActions.zoominbybox)
             {
+                // 拉框时：先画底图，再画上面的红框
                 e.Graphics.DrawImage(backwindow, 0, 0);
 
                 int x = Math.Min(MouseDownLocation.X, MouseMovingLocation.X);
@@ -144,162 +91,161 @@ namespace GIS2025
                 int height = Math.Abs(MouseDownLocation.Y - MouseMovingLocation.Y);
 
                 e.Graphics.DrawRectangle(
-                    new Pen(new SolidBrush(Color.Red), 2), 
+                    new Pen(new SolidBrush(Color.Red), 2),
                     x, y, width, height);
             }
             else
             {
+                // 正常状态：直接把内存里的图贴出来
                 e.Graphics.DrawImage(backwindow, 0, 0);
             }
-
         }
 
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
-        {
-            UpdateMap();
-        }
+        // ====================================================================
+        // 2. 鼠标交互逻辑 (全部绑定到 mapBox 上)
+        // ====================================================================
 
-        private void FormMap_MouseDown(object sender, MouseEventArgs e)
+        private void mapBox_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left) return;
+
             MouseDownLocation = e.Location;
+
+            // 按住 Shift 键进入拉框放大模式
             if (Control.ModifierKeys == Keys.Shift)
                 currentMouseAction = XExploreActions.zoominbybox;
-            else if (Control.ModifierKeys == Keys.Alt ||
-                Control.ModifierKeys == (Keys.Alt | Keys.Control))
-                currentMouseAction = XExploreActions.select;
+            // 默认就是漫游模式 (Pan)
             else
                 currentMouseAction = XExploreActions.pan;
         }
 
-        private void FormMap_MouseUp(object sender, MouseEventArgs e)
+        private void mapBox_MouseMove(object sender, MouseEventArgs e)
         {
-            XVertex v1 = view.ToMapVertex(MouseDownLocation);
-            XVertex v2 = view.ToMapVertex(e.Location);
+            // 1. 显示坐标 (假设你底部的 Label 叫 lblCoordinates)
+            XVertex mapVertex = view.ToMapVertex(e.Location);
+            // 这里记得把 labelXY 换成你 StatusStrip 上那个 Label 的名字
+            // labelXY.Text = $"X: {mapVertex.X:F2}, Y: {mapVertex.Y:F2}"; 
 
+            // 2. 处理交互反馈
+            MouseMovingLocation = e.Location;
+            if (currentMouseAction == XExploreActions.zoominbybox ||
+                currentMouseAction == XExploreActions.pan)
+            {
+                // 只有在拖动或拉框时才刷新，为了流畅
+                mapBox.Invalidate();
+            }
+        }
+
+        private void mapBox_MouseUp(object sender, MouseEventArgs e)
+        {
             if (MouseDownLocation == e.Location)
             {
-                if (currentMouseAction == XExploreActions.select)  //现在是点选
-                {
-                    layer.SelectByVertex(v2,view.ToMapDistance(5),
-                            Control.ModifierKeys == (Keys.Alt | Keys.Control));
-                    UpdateMap();
-                }
-
                 currentMouseAction = XExploreActions.noaction;
                 return;
             }
 
+            XVertex v1 = view.ToMapVertex(MouseDownLocation);
+            XVertex v2 = view.ToMapVertex(e.Location);
 
             if (currentMouseAction == XExploreActions.zoominbybox)
             {
                 XExtent extent = new XExtent(v1, v2);
-                view.Update(extent, ClientRectangle);
+                view.Update(extent, mapBox.ClientRectangle);
             }
             else if (currentMouseAction == XExploreActions.pan)
             {
                 view.OffsetCenter(v1, v2);
             }
-            else if (currentMouseAction == XExploreActions.select) //框选
-            {
-                XExtent extent = new XExtent(v1, v2);
-                layer.SelectByExtent(extent,
-                            Control.ModifierKeys == (Keys.Alt | Keys.Control));
-            }
+
             currentMouseAction = XExploreActions.noaction;
-            UpdateMap();
+            UpdateMap(); // 动作结束，生成新图
         }
 
-        private void bReadShapefile_Click(object sender, EventArgs e)
+        // 鼠标滚轮缩放
+        private void mapBox_MouseWheel(object sender, MouseEventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Filter = "Shapfile|*.shp";
-
-
-
-
-
-
-            if (dialog.ShowDialog() != DialogResult.OK) return;
-
-
-
-
-
-            layer = XShapefile.ReadShapefile(dialog.FileName);
-            layer.LabelOrNot = false;
-            view.Update(layer.Extent, ClientRectangle);
-            UpdateMap();
-
-        }
-
-        private void FormMap_MouseWheel(object sender, MouseEventArgs e)
-        {
-            if (e.Delta>0)
-            {
+            if (e.Delta > 0)
                 view.ChangeView(XExploreActions.zoomin);
-            }
             else
-            {
                 view.ChangeView(XExploreActions.zoomout);
-            }
+
             UpdateMap();
         }
 
-        private void bZoomIn_Click(object sender, EventArgs e)
+        // 窗口大小改变时，地图也要重绘
+        private void mapBox_SizeChanged(object sender, EventArgs e)
         {
-            view.ChangeView(XExploreActions.zoomin);
             UpdateMap();
         }
 
-        private void bZoomOut_Click(object sender, EventArgs e)
-        {
-            view.ChangeView(XExploreActions.zoomout);
-            UpdateMap();
-        }
+        // ====================================================================
+        // 3. 顶部按钮功能区
+        // ====================================================================
 
-        private void bOpenAttribute_Click(object sender, EventArgs e)
-        {
-            FormAttribute form = new FormAttribute(layer);
-            form.Show();
-        }
-
-        private void bReadMyFile_Click(object sender, EventArgs e)
+        // 按钮：读取 Shapefile
+        private void btnOpenShapefile_Click(object sender, EventArgs e)
         {
             OpenFileDialog dialog = new OpenFileDialog();
-            dialog.Filter = "myfile|*.gis";
+            dialog.Filter = "Shapefile|*.shp";
 
             if (dialog.ShowDialog() != DialogResult.OK) return;
 
-            layer = XMyFile.ReadFile(dialog.FileName);
+            layers[0] = XShapefile.ReadShapefile(dialog.FileName);
+            layers[0].LabelOrNot = false;
 
-            view.Update(layer.Extent, ClientRectangle);
+            // 读完数据后，自动把视图缩放到全图范围
+            view.Update(layers[0].Extent, mapBox.ClientRectangle);
             UpdateMap();
         }
 
-        private void bWriteMyFile_Click(object sender, EventArgs e)
+        // 按钮：全图显示
+        private void btnFullExtent_Click(object sender, EventArgs e)
         {
-            SaveFileDialog dialog = new SaveFileDialog();
-            dialog.Filter = "myfile|*.gis";
+            if (layers[0] == null || layers[0].Extent == null) return;
 
+            view.Update(new XExtent(layers[0].Extent), mapBox.ClientRectangle);
+            UpdateMap();
+        }
+
+        private void explore_button_Click(object sender, EventArgs e)
+        {
+            // 切换当前动作为 Pan (平移)
+            currentMouseAction = XExploreActions.pan;
+            mapBox.Cursor = Cursors.Hand;
+        }
+
+        private void button_ReadShp_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog();
+            dialog.Filter = "Shapefile|*.shp"; 
             if (dialog.ShowDialog() != DialogResult.OK) return;
+            XVectorLayer newlayer = XShapefile.ReadShapefile(dialog.FileName);
+            newlayer.LabelOrNot = false; // 默认不显示标注，防止太乱
+            newlayer.Name = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName);
+            layers.Add(newlayer);
+            treeView1.Nodes.Add(newlayer.Name);
 
-            XMyFile.WriteFile(layer, dialog.FileName);
+            if (layers.Count > 0) {
+                view.Update(newlayer.Extent, mapBox.ClientRectangle);
+            }
+            UpdateMap();
         }
 
-        private void ExploreButton_Click(object sender, EventArgs e)
+        private void button_FullExtent_Click(object sender, EventArgs e)
         {
-            XExploreActions action= XExploreActions.zoomin;
-
-            if (sender == bZoomIn) action = XExploreActions.zoomin;
-            else if (sender == bZoomOut) action = XExploreActions.zoomout;
-            else if (sender == bMoveDown) action = XExploreActions.movedown;
-            else if (sender == bMoveLeft) action = XExploreActions.moveleft;
-            else if (sender == bMoveRight) action = XExploreActions.moveright;
-            else if (sender == bMoveUp) action = XExploreActions.moveup;
-
-            view.ChangeView(action);
+            if (layers[0] == null || layers[0].Extent == null) return;
+            view.Update(new XExtent(layers[0].Extent), mapBox.ClientRectangle);
             UpdateMap();
+        }
+
+
+
+        // 按钮：漫游 (其实默认就是漫游，这个按钮可以用来重置状态)
+        private void btnExplore_Click(object sender, EventArgs e)
+        {
+            currentMouseAction = XExploreActions.pan;
+            // 可以给用户一个提示，或者把鼠标样式变一下
+            mapBox.Cursor = Cursors.Hand;
         }
     }
 }

@@ -619,6 +619,7 @@ namespace XGIS
         public List<XField> Fields = new List<XField>();
         public bool LabelOrNot = true;
         public int LabelIndex = 0;
+        public bool Visible = true;
 
         public List<XFeature> SelectedFeatures = new List<XFeature>();
         public XThematic UnselectedThematic, SelectedThematic;

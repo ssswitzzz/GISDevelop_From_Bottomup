@@ -17,6 +17,7 @@ namespace GIS2025
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new FormMap());
+
         }
     }
 }
