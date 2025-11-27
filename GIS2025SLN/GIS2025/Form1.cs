@@ -14,24 +14,44 @@ namespace GIS2025
     public partial class FormMap : Form
     {
         // GIS核心变量
+        // 注意：layers 列表现在只起辅助作用，核心顺序以 treeView1.Nodes 为准
         List<XVectorLayer> layers = new List<XVectorLayer>();
         XView view = null;
         Bitmap backwindow;
+        Bitmap iconEyeOpen;
+        Bitmap iconEyeClose;
 
         // 交互状态变量
         Point MouseDownLocation, MouseMovingLocation;
         XExploreActions currentMouseAction = XExploreActions.noaction;
+        private TreeNode dropTargetNode = null;
 
         public FormMap()
         {
             InitializeComponent();
             mapBox.MouseWheel += mapBox_MouseWheel;
-            // 手动订阅 TreeView 的事件
-            // 【重要】现在的 View 大小要根据 mapBox 来定，而不是整个窗口
-            // 请确保你设计视图里中间那个白色的控件名字叫 mapBox
             view = new XView(new XExtent(0, 1, 0, 1), mapBox.ClientRectangle);
+
             List<XVectorLayer> layers = new List<XVectorLayer>();
-            // 初始化一个空的图层防止报错
+
+            iconEyeOpen = Properties.Resources.icon_eye_open;
+            iconEyeClose = Properties.Resources.icon_eye_close;
+            // 【关键修改】开启完全自绘模式，这样 Checkbox 会消失，由我们自己画
+            treeView1.DrawMode = TreeViewDrawMode.OwnerDrawAll;
+            treeView1.ItemHeight = 26; // 稍微调高一点，让行距不那么挤，更有现代感
+
+            // 绑定事件（你原本有的）
+            treeView1.ItemDrag += treeView1_ItemDrag;
+            treeView1.DragEnter += treeView1_DragEnter;
+            treeView1.DragOver += treeView1_DragOver; // 记得绑定 DragOver
+            treeView1.DragDrop += treeView1_DragDrop;
+            treeView1.DragLeave += treeView1_DragLeave;
+            treeView1.DrawNode += treeView1_DrawNode;
+            treeView1.MouseDown += treeView1_MouseDown; // 新增：处理点击眼睛图标
+
+
+
+
 
         }
         private void UpdateMap()
@@ -50,16 +70,21 @@ namespace GIS2025
             // 3. 在内存里作画
             Graphics g = Graphics.FromImage(backwindow);
             g.Clear(Color.White); // 背景色设为白色
-            foreach (XVectorLayer layer in layers)
+            // 【关键算法】画家算法：从下往上画
+            // TreeView 的 Nodes[0] 是最顶层，Nodes[Count-1] 是最底层
+            // 所以我们要倒序遍历 TreeView 的节点
+            for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
             {
-                // 只有当图层可见时才画 (预留功能，配合TreeView前面的勾选框)
-                // if (layer.Visible) 
-                layer.draw(g, view);
-            }
+                TreeNode node = treeView1.Nodes[i];
+                // 从 Tag 里取出图层数据
+                XVectorLayer layer = (XVectorLayer)node.Tag;
 
-            // 绘制图层
-            // layer.LabelOrNot = checkBox1.Checked; // 如果你删了checkbox，这句要注释掉
-            layers[0].draw(g, view);
+                // 只有打钩了才画
+                if (node.Checked)
+                {
+                    layer.draw(g, view);
+                }
+            }
 
             g.Dispose();
 
@@ -165,9 +190,9 @@ namespace GIS2025
         private void mapBox_MouseWheel(object sender, MouseEventArgs e)
         {
             if (e.Delta > 0)
-                view.ChangeView(XExploreActions.zoomin);
+                view.ZoomByScreenPoint(e.Location, true);
             else
-                view.ChangeView(XExploreActions.zoomout);
+                view.ZoomByScreenPoint(e.Location, false);
 
             UpdateMap();
         }
@@ -219,23 +244,52 @@ namespace GIS2025
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Filter = "Shapefile|*.shp"; 
             if (dialog.ShowDialog() != DialogResult.OK) return;
-            XVectorLayer newlayer = XShapefile.ReadShapefile(dialog.FileName);
-            newlayer.LabelOrNot = false; // 默认不显示标注，防止太乱
-            newlayer.Name = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName);
-            layers.Add(newlayer);
-            treeView1.Nodes.Add(newlayer.Name);
+            foreach (string filename in dialog.FileNames)
+            {
+                XVectorLayer newLayer = XShapefile.ReadShapefile(filename);
+                newLayer.Name = System.IO.Path.GetFileNameWithoutExtension(filename);
+                newLayer.LabelOrNot = false;
+                // 创建节点
+                TreeNode node = new TreeNode(newLayer.Name);
+                node.Checked = true; // 默认打钩
+                node.Tag = newLayer; // 【关键】把数据绑定在节点上！
 
-            if (layers.Count > 0) {
-                view.Update(newlayer.Extent, mapBox.ClientRectangle);
+                // 把新图层插到最上面 (Index 0)
+                treeView1.Nodes.Insert(0, node);
+
+                // 同时也加到列表里备份（可选，主要为了方便计算全图）
+                layers.Add(newLayer);
+            }
+
+            // 只有当这是第一次加载数据时，才自动缩放全图
+            // 这样就不会出现加载第二个图层时，视野突然乱跳的问题
+            if (layers.Count == 1) // 或者判断 treeView1.Nodes.Count == 1
+            {
+                // 调用下面的全图逻辑
+                button_FullExtent_Click(null, null);
             }
             UpdateMap();
         }
 
         private void button_FullExtent_Click(object sender, EventArgs e)
         {
-            if (layers[0] == null || layers[0].Extent == null) return;
-            view.Update(new XExtent(layers[0].Extent), mapBox.ClientRectangle);
-            UpdateMap();
+            if (treeView1.Nodes.Count == 0) return;
+            XExtent fullExtent = null;
+            foreach (TreeNode node in treeView1.Nodes)
+            {
+                XVectorLayer layer = (XVectorLayer)node.Tag;
+                if (fullExtent == null)
+                    fullExtent = new XExtent(layer.Extent);
+                else
+                    fullExtent.Merge(layer.Extent); // 合并所有图层的范围
+            }
+
+            // 2. 更新视图
+            if (fullExtent != null)
+            {
+                view.Update(fullExtent, mapBox.ClientRectangle);
+                UpdateMap();
+            }
         }
 
 
@@ -247,5 +301,166 @@ namespace GIS2025
             // 可以给用户一个提示，或者把鼠标样式变一下
             mapBox.Cursor = Cursors.Hand;
         }
+        private void treeView1_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            // 开始拖动选中的节点
+            DoDragDrop(e.Item, DragDropEffects.Move);
+        }
+
+        // 拖拽进入区域
+        private void treeView1_DragEnter(object sender, DragEventArgs e)
+        {
+            // 允许移动操作
+            e.Effect = DragDropEffects.Move;
+        }
+
+        private void treeView1_AfterCheck(object sender, TreeViewEventArgs e)
+        {
+
+            UpdateMap();
+        }
+
+        // =================================================================
+        // 1. 自定义绘制 (解决丑陋问题 + 画指示线)
+        // =================================================================
+        private void treeView1_DrawNode(object sender, DrawTreeNodeEventArgs e)
+        {
+            // 1. 开启抗锯齿，让文字和线条平滑
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            // 2. 绘制背景
+            // 选中状态用淡蓝色，未选中用白色
+            Color backColor = ((e.State & TreeNodeStates.Selected) != 0) ?
+                              Color.FromArgb(204, 232, 255) : Color.White;
+            using (SolidBrush brush = new SolidBrush(backColor))
+            {
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            }
+
+            // --- 核心修改：定义严格的区域 ---
+            int iconWidth = 24; // 眼睛图标的点击宽度
+            int clickLimit = 24;
+            // 1. 计算眼睛的位置 (在 Bounds 的最左侧，居中)
+            // 假设图片是 20x20
+            int imgSize = 30;
+            int imgY = e.Bounds.Y + (treeView1.ItemHeight - imgSize) / 2;
+            // 让图片在 iconWidth 区域内居中
+            int imgX = e.Bounds.X + (iconWidth - imgSize) / 2;
+
+            Rectangle imgRect = new Rectangle(e.Bounds.X + 2, e.Bounds.Y + 4, 20, 20);
+
+            // 画图标
+            bool isVisible = e.Node.Checked;
+            Image imgToDraw = isVisible ? iconEyeOpen : iconEyeClose;
+            if (imgToDraw != null) e.Graphics.DrawImage(imgToDraw, imgRect);
+
+            int textOffset = 30; // 只要这个数字比 clickLimit 大，点文字就绝不会触发！
+
+            Rectangle textRect = new Rectangle(
+                e.Bounds.X + textOffset,  // 从 X + 30 开始画文字
+                e.Bounds.Y,
+                e.Bounds.Width - textOffset,
+                e.Bounds.Height);
+
+            TextRenderer.DrawText(e.Graphics, e.Node.Text, treeView1.Font,
+                textRect, Color.Black, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+
+            // 5. 【关键】绘制拖拽指示线
+            // 现在的逻辑是：拖拽到目标节点时，默认插入到它上面。所以我们在目标节点顶部画一根线。
+            if (dropTargetNode != null && e.Node == dropTargetNode)
+            {
+                // 画一根显眼的蓝线或红线，带一点圆头，像 ArcGIS Pro 那样
+                using (Pen linePen = new Pen(Color.FromArgb(0, 122, 204), 3))
+                {
+                    e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Top, e.Bounds.Right, e.Bounds.Top);
+                }
+            }
+        }
+
+        // =================================================================
+        // 2. 拖拽逻辑 (带视觉反馈)
+        // =================================================================
+        private void treeView1_DragOver(object sender, DragEventArgs e)
+        {
+            Point pt = treeView1.PointToClient(new Point(e.X, e.Y));
+            TreeNode target = treeView1.GetNodeAt(pt);
+
+            // 只有目标变了才重绘，防止闪烁
+            if (dropTargetNode != target)
+            {
+                dropTargetNode = target;
+                treeView1.Invalidate(); // 这一句会让 DrawNode 重新运行，画出横线
+            }
+
+            e.Effect = DragDropEffects.Move;
+
+            // 如果需要，这里可以加一段代码：当拖拽到边缘时自动滚动 TreeView
+        }
+
+        private void treeView1_DragDrop(object sender, DragEventArgs e)
+        {
+            // 1. 获取源节点
+            TreeNode srcNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
+
+            // 2. 获取目标节点 (就是我们刚才画线的那个位置)
+            Point pt = treeView1.PointToClient(new Point(e.X, e.Y));
+            TreeNode targetNode = treeView1.GetNodeAt(pt);
+
+            // 清除指示线
+            dropTargetNode = null;
+            treeView1.Invalidate();
+
+            if (srcNode == null) return;
+
+            // 3. 移动节点逻辑
+            if (targetNode == null)
+            {
+                // 如果拖到了空白处，默认移动到最底部
+                treeView1.Nodes.Remove(srcNode);
+                treeView1.Nodes.Add(srcNode);
+            }
+            else if (targetNode != srcNode)
+            {
+                // 移动到目标节点之前 (Insert)
+                treeView1.Nodes.Remove(srcNode);
+                treeView1.Nodes.Insert(targetNode.Index, srcNode);
+            }
+
+            // 4. 选中并刷新地图
+            treeView1.SelectedNode = srcNode;
+            UpdateMap();
+        }
+
+        // 离开 TreeView 时清除线条
+        private void treeView1_DragLeave(object sender, EventArgs e)
+        {
+            dropTargetNode = null;
+            treeView1.Invalidate();
+        }
+        private void treeView1_MouseDown(object sender, MouseEventArgs e)
+        {
+            TreeNode node = treeView1.GetNodeAt(e.X, e.Y);
+            if (node == null) return;
+
+            // 计算点击位置相对于节点左边缘的距离
+            int diff = e.X - node.Bounds.X;
+
+            // 【关键修改】严格判定
+            // 只有点击在前 24 像素内，才算点中眼睛
+            // 因为文字是从第 30 像素开始画的，所以点文字(>30)绝对不会进这个 if
+            if (diff >= 0 && diff <= 24)
+            {
+                node.Checked = !node.Checked;
+                treeView1.Invalidate();
+                UpdateMap();
+            }
+            else
+            {
+                // 只要大于 24，哪怕是 25, 26 空白处，或者 30 的文字处，都算选中
+                treeView1.SelectedNode = node;
+            }
+        }
+    
     }
 }

@@ -18,10 +18,10 @@ namespace XGIS
         public Pen LinePen = new Pen(Color.Black, 1);
         //面实体显示样式
         public Pen PolygonPen = new Pen(Color.Blue, 1);
-        public SolidBrush PolygonBrush = new SolidBrush(Color.Yellow);
+        public SolidBrush PolygonBrush = new SolidBrush(Color.Pink);
         //点实体显示样式
         public Pen PointPen = new Pen(Color.Red, 1);
-        public SolidBrush PointBrush = new SolidBrush(Color.White);
+        public SolidBrush PointBrush = new SolidBrush(Color.Black);
         public int PointRadius = 5;
 
         public XThematic()
@@ -748,8 +748,8 @@ namespace XGIS
             {
                 if (Features[i].spatial.extent.IntersectOrNot(view.CurrentMapExtent))
                     Features[i].draw(graphics, view, LabelOrNot, LabelIndex,
-                        SelectedFeatures.Contains(Features[i])?
-                            SelectedThematic:
+                        SelectedFeatures.Contains(Features[i]) ?
+                            SelectedThematic :
                             UnselectedThematic);
             }
         }
@@ -933,13 +933,31 @@ namespace XGIS
             XVertex v2 = ToMapVertex(p2);
             return v1.Distance(v2);
         }
+
+        public void ZoomByScreenPoint(Point screenPoint, bool isZoomIn)
+        {
+            // 1. 获取鼠标当前指向的地理坐标 (这个点就是我们的锚点)
+            XVertex mouseLocation = ToMapVertex(screenPoint);
+
+            // 2. 确定缩放比例
+            // 这里我们借用 Extent 里的 ZoomFactor 概念，或者自己定义
+            // 如果是放大，比例就是 1.2；如果是缩小，比例就是 1 / 1.2
+            double zoomFactor = 1.2;
+            double ratio = isZoomIn ? zoomFactor : (1 / zoomFactor);
+
+            // 3. 让 Extent 以这个点为中心进行缩放
+            CurrentMapExtent.ZoomToCenter(mouseLocation, ratio);
+
+            // 4. 更新视图 (这一步很重要，重新计算 Scale 等参数)
+            Update(CurrentMapExtent, MapWindowSize);
+        }
     }
     public class XExtent
     {
         public XVertex bottomLeft, upRight;
 
 
-        double ZoomFactor = 2;
+        double ZoomFactor = 1.2;
         double MovingFactor = 0.25;
 
         public XExtent(XVertex _oneCorner, XVertex _anotherCorner)
@@ -1011,6 +1029,20 @@ namespace XGIS
             upRight.y = newmaxy;
             bottomLeft.x = newminx;
             bottomLeft.y = newminy;
+        }
+
+        public void ZoomToCenter(XVertex center, double ratio)
+        {
+            // ratio > 1 表示放大 (Zoom In)，范围变小
+            // ratio < 1 表示缩小 (Zoom Out)，范围变大
+
+            // 核心算法：新的边界 = 中心点 - (中心点 - 旧边界) / 比例
+            // 这样可以保证 center 这个点的坐标在缩放前后保持不变
+            bottomLeft.x = center.x - (center.x - bottomLeft.x) / ratio;
+            bottomLeft.y = center.y - (center.y - bottomLeft.y) / ratio;
+
+            upRight.x = center.x + (upRight.x - center.x) / ratio;
+            upRight.y = center.y + (upRight.y - center.y) / ratio;
         }
 
         internal double GetHeight()
