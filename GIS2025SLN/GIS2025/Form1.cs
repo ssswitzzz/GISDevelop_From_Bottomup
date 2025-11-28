@@ -20,9 +20,10 @@ namespace GIS2025
         Bitmap backwindow;
         Bitmap iconEyeOpen;
         Bitmap iconEyeClose;
-
+        XTileLayer basemapLayer; // 新增底图变量
         // 我们需要一个定时器来不断刷新正在下载的底图
         Timer timerDownloadCheck = new Timer();
+
 
         // 交互状态变量
         Point MouseDownLocation, MouseMovingLocation;
@@ -32,9 +33,22 @@ namespace GIS2025
         public FormMap()
         {
             InitializeComponent();
+            // 1. 网络协议设置 (天地图也需要)
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
-            
-        
+            // 2. 初始化 View (记得要用 -85 到 85，防止卡死！)
+            view = new XView(new XExtent(-180, 180, -85, 85), mapBox.ClientRectangle);
+
+            // 3. 【修改】使用天地图 URL
+            // T=vec_w 表示矢量底图(Web墨卡托)，兼容我们的算法
+            // 注意：把下面的 "你的Key" 换成你刚才申请到的真实 Key！
+            string myKey = "5e531967100311fcb8098b759848b71c";
+            string url = $"https://t0.tianditu.gov.cn/DataServer?T=vec_w&x={{x}}&y={{y}}&l={{z}}&tk={myKey}";
+
+            basemapLayer = new XTileLayer(url);
+            basemapLayer.Name = "天地图矢量";
+
+
 
             mapBox.MouseWheel += mapBox_MouseWheel;
             mapBox.MouseLeave += MapBox_MouseLeave;
@@ -42,43 +56,20 @@ namespace GIS2025
             timerZoom.Tick += TimerZoom_Tick; // 绑定事件
 
 
+            // 2. 把底图加到 TreeView 的最底部
+            TreeNode baseNode = new TreeNode(basemapLayer.Name);
+            baseNode.Tag = basemapLayer; // 绑定对象
+            baseNode.Checked = true;
+            treeView1.Nodes.Add(baseNode); // Add 是加到末尾，也就是最底层
 
+            // 3. 设置下载刷新定时器
+            // 因为下载是异步的，下载完后需要通知界面重绘。简单做法是用个 Timer 每 0.5 秒刷一下
+            timerDownloadCheck.Interval = 500;
+            timerDownloadCheck.Tick += (s, e) => { UpdateMap(); };
+            timerDownloadCheck.Start();
 
-            view = new XView(new XExtent(0, 1, 0, 1), mapBox.ClientRectangle);
-
-            //// 1. 初始化底图 (使用 ArcGIS Topo Map)
-            //string url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
-            //basemapLayer = new XTileLayer(url);
-            //basemapLayer.Name = "World Topo Map";
-
-            //// 2. 把底图加到 TreeView 的最底部
-            //TreeNode baseNode = new TreeNode(basemapLayer.Name);
-            //baseNode.Tag = basemapLayer; // 绑定对象
-            //baseNode.Checked = true;
-            //treeView1.Nodes.Add(baseNode); // Add 是加到末尾，也就是最底层
-
-            //// 3. 设置下载刷新定时器
-            //// 因为下载是异步的，下载完后需要通知界面重绘。简单做法是用个 Timer 每 0.5 秒刷一下
-            //timerDownloadCheck.Interval = 500;
-            //timerDownloadCheck.Tick += (s, e) => { UpdateMap(); };
-            //timerDownloadCheck.Start();
-
-            //// 4. 初始化视图为全球范围 (经纬度)
-            //view.Update(new XExtent(-180, 180, -90, 90), mapBox.ClientRectangle);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            // 4. 初始化视图为全球范围 (经纬度)
+            view.Update(new XExtent(120, 125, 25, 35), mapBox.ClientRectangle);
 
 
 
@@ -143,7 +134,11 @@ namespace GIS2025
                     // 是矢量图层，用原来的画法
                     vectorLayer.draw(g, view);
                 }
-                
+                else if (node.Tag is XTileLayer tileLayer)
+                {
+                    // 是底图图层，用底图画法
+                    tileLayer.Draw(g, view);
+                }
             }
 
             g.Dispose();
@@ -361,11 +356,16 @@ namespace GIS2025
             XExtent fullExtent = null;
             foreach (TreeNode node in treeView1.Nodes)
             {
-                XVectorLayer layer = (XVectorLayer)node.Tag;
-                if (fullExtent == null)
-                    fullExtent = new XExtent(layer.Extent);
-                else
-                    fullExtent.Merge(layer.Extent); // 合并所有图层的范围
+                if (node.Tag is XVectorLayer layer)
+                {
+                    // 如果图层本身没范围（比如空图层），跳过
+                    if (layer.Extent == null) continue;
+
+                    if (fullExtent == null)
+                        fullExtent = new XExtent(layer.Extent);
+                    else
+                        fullExtent.Merge(layer.Extent);
+                }
             }
 
             // 2. 更新视图

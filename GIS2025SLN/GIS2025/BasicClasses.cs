@@ -1577,165 +1577,190 @@ namespace XGIS
             return count % 2 != 0;
         }
     }
-    //public class XTileLayer
-    //{
-    //    public string Name = "Basemap";
-    //    public bool Visible = true;
-    //    private string UrlTemplate; // URL 模板
+    public class XTileLayer
+    {
+        public string Name = "Basemap";
+        public bool Visible = true;
+        private string UrlTemplate; // URL 模板
 
-    //    // 简单的内存缓存，存已经下载的图片
-    //    private Dictionary<string, Image> tileCache = new Dictionary<string, Image>();
+        // 简单的内存缓存，存已经下载的图片
+        private Dictionary<string, Image> tileCache = new Dictionary<string, Image>();
 
-    //    // 正在下载的任务列表，防止重复下载同一个
-    //    private List<string> downloading = new List<string>();
+        // 正在下载的任务列表，防止重复下载同一个
+        private List<string> downloading = new List<string>();
 
-    //    public XTileLayer(string urlTemplate)
-    //    {
-    //        UrlTemplate = urlTemplate;
-    //    }
+        public XTileLayer(string urlTemplate)
+        {
+            UrlTemplate = urlTemplate;
+        }
 
-    //    // 画图核心方法
-    //    public void Draw(Graphics g, XView view)
-    //    {
-    //        if (!Visible) return;
+        // 画图核心方法
+        public void Draw(Graphics g, XView view)
+        {
+            if (!Visible) return;
 
-    //        // 1. 根据当前比例尺计算 Zoom Level (Z)
-    //        // 这是一个经验公式，估算当前的缩放层级
-    //        int zoom = CalculateZoomLevel(view);
+            // 1. 根据当前比例尺计算 Zoom Level (Z)
+            // 这是一个经验公式，估算当前的缩放层级
+            int zoom = CalculateZoomLevel(view);
 
-    //        // 2. 计算当前视图范围内包含哪些瓦片 (Tile X, Tile Y)
-    //        GetTileBounds(view.CurrentMapExtent, zoom, out int minX, out int maxX, out int minY, out int maxY);
+            // 2. 计算当前视图范围内包含哪些瓦片 (Tile X, Tile Y)
+            GetTileBounds(view.CurrentMapExtent, zoom, out int minX, out int maxX, out int minY, out int maxY);
+            // 计算当前层级下，合法的最大瓦片编号 (2的zoom次方 - 1)
+            // 比如 zoom=2 时，瓦片范围是 0~3，maxTileIndex 就是 3
+            int maxTileIndex = (1 << zoom) - 1;
 
-    //        // 3. 循环遍历所有需要的瓦片
-    //        for (int x = minX; x <= maxX; x++)
-    //        {
-    //            for (int y = minY; y <= maxY; y++)
-    //            {
-    //                // 生成缓存的 Key
-    //                string key = $"{zoom}/{y}/{x}";
+            // --- 【核心修改】限制 X 和 Y 的范围 ---
+            // 1. 如果 minX 小于 0，强制设为 0 (砍掉左边的重复世界)
+            if (minX < 0) minX = 0;
 
-    //                // 如果缓存里有，直接画
-    //                if (tileCache.ContainsKey(key))
-    //                {
-    //                    Image img = tileCache[key];
-    //                    // 计算图片在屏幕上的位置
-    //                    Rectangle rect = GetScreenRect(x, y, zoom, view);
+            // 2. 如果 maxX 超过了最大编号，强制设为最大编号 (砍掉右边的重复世界)
+            if (maxX > maxTileIndex) maxX = maxTileIndex;
 
-    //                    // 可能会有投影变形，这里做简单的拉伸绘制
-    //                    g.DrawImage(img, rect);
-    //                }
-    //                else
-    //                {
-    //                    // 如果没有，且没在下载中，就去后台下载
-    //                    if (!downloading.Contains(key))
-    //                    {
-    //                        DownloadTileAsync(x, y, zoom, key, view);
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
 
-    //    // 异步下载瓦片
-    //    private async void DownloadTileAsync(int x, int y, int z, string key, XView view)
-    //    {
-    //        downloading.Add(key);
-    //        try
-    //        {
-    //            // 替换 URL 中的参数
-    //            string url = UrlTemplate.Replace("{x}", x.ToString())
-    //                                    .Replace("{y}", y.ToString())
-    //                                    .Replace("{z}", z.ToString());
+            // 【新增】熔断机制：如果瓦片数量超过 100 张，直接不画
+            // 原因：1. 可能是缩小到太小了，需要加载全球几百张图，性能扛不住
+            //       2. 可能是坐标系算错了，导致范围无限大
+            // 限制为 100 张通常足够覆盖屏幕了
+            int totalTiles = (maxX - minX + 1) * (maxY - minY + 1);
+            if (totalTiles > 100 || totalTiles < 0)
+            {
+                return;
+            }
+            // 3. 循环遍历所有需要的瓦片
+            for (int x = minX; x <= maxX; x++)
+            {
+                for (int y = minY; y <= maxY; y++)
+                {
+                    // 生成缓存的 Key
+                    string key = $"{zoom}/{y}/{x}";
 
-    //            using (WebClient client = new WebClient())
-    //            {
-    //                // 模拟浏览器 UserAgent，防止被拦截
-    //                client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-    //                byte[] data = await client.DownloadDataTaskAsync(new Uri(url));
+                    // 如果缓存里有，直接画
+                    if (tileCache.ContainsKey(key))
+                    {
+                        Image img = tileCache[key];
+                        // 计算图片在屏幕上的位置
+                        Rectangle rect = GetScreenRect(x, y, zoom, view);
 
-    //                using (var ms = new MemoryStream(data))
-    //                {
-    //                    Image img = Image.FromStream(ms);
-    //                    // 存入缓存
-    //                    if (!tileCache.ContainsKey(key))
-    //                    {
-    //                        tileCache.Add(key, img);
-    //                    }
-    //                }
-    //            }
-    //        }
-    //        catch
-    //        {
-    //            // 下载失败就算了，可能是网络问题或没有这个瓦片
-    //        }
-    //        finally
-    //        {
-    //            downloading.Remove(key);
-    //        }
+                        // 可能会有投影变形，这里做简单的拉伸绘制
+                        g.DrawImage(img, rect);
+                    }
+                    else
+                    {
+                        // 如果没有，且没在下载中，就去后台下载
+                        if (!downloading.Contains(key))
+                        {
+                            DownloadTileAsync(x, y, zoom, key, view);
+                        }
+                    }
+                }
+            }
+        }
 
-    //        // 下载完成后，通知主界面重绘（这一步稍微有点 tricky，需要用到 Form 的引用或者事件，这里简化处理，稍后在 Form1 配合）
-    //    }
+        // 异步下载瓦片
+        private async void DownloadTileAsync(int x, int y, int z, string key, XView view)
+        {
+            downloading.Add(key);
+            try
+            {
+                // 替换 URL 中的参数
+                string url = UrlTemplate.Replace("{x}", x.ToString())
+                                        .Replace("{y}", y.ToString())
+                                        .Replace("{z}", z.ToString());
 
-    //    // ================= 工具算法区 =================
+                using (WebClient client = new WebClient())
+                {
+                    // 必须要加这行，伪装成浏览器，否则天地图可能会拒绝访问
+                    client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36");
+                    byte[] data = await client.DownloadDataTaskAsync(new Uri(url));
 
-    //    // 估算 Zoom Level
-    //    private int CalculateZoomLevel(XView view)
-    //    {
-    //        // 地球赤道周长约 40075016 米
-    //        // 简单估算：看当前视图跨度占地球的比例
-    //        // 注意：这里假设 view 的坐标系是经纬度 (WGS84)
-    //        double widthInDegrees = view.CurrentMapExtent.GetWidth();
+                    using (var ms = new MemoryStream(data))
+                    {
+                        Image img = Image.FromStream(ms);
+                        // 存入缓存
+                        if (!tileCache.ContainsKey(key))
+                        {
+                            tileCache.Add(key, img);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 下载失败就算了，可能是网络问题或没有这个瓦片
+            }
+            finally
+            {
+                downloading.Remove(key);
+            }
 
-    //        // 360度 / 宽度度数，取 Log2 得到层级
-    //        int z = (int)Math.Floor(Math.Log(360.0 / widthInDegrees, 2));
+            // 下载完成后，通知主界面重绘（这一步稍微有点 tricky，需要用到 Form 的引用或者事件，这里简化处理，稍后在 Form1 配合）
+        }
 
-    //        // 修正一下，通常加 2 到 3 级比较清晰
-    //        z += 2;
+        // ================= 工具算法区 =================
 
-    //        // 限制范围 0-19
-    //        return Math.Max(0, Math.Min(19, z));
-    //    }
+        // 估算 Zoom Level
+        private int CalculateZoomLevel(XView view)
+        {
+            // 地球赤道周长约 40075016 米
+            // 简单估算：看当前视图跨度占地球的比例
+            // 注意：这里假设 view 的坐标系是经纬度 (WGS84)
+            double widthInDegrees = view.CurrentMapExtent.GetWidth();
 
-    //    // 经纬度转瓦片坐标 (Slippy Map 标准算法)
-    //    private void GetTileBounds(XExtent extent, int z, out int minX, out int maxX, out int minY, out int maxY)
-    //    {
-    //        minX = LongToTileX(extent.GetMinX(), z);
-    //        maxX = LongToTileX(extent.GetMaxX(), z);
-    //        // 注意 Y 轴：纬度越高 Y 越小 (Web Mercator 特性)
-    //        minY = LatToTileY(extent.GetMaxY(), z);
-    //        maxY = LatToTileY(extent.GetMinY(), z);
-    //    }
+            // 360度 / 宽度度数，取 Log2 得到层级
+            int z = (int)Math.Floor(Math.Log(360.0 / widthInDegrees, 2));
 
-    //    private int LongToTileX(double lon, int z)
-    //    {
-    //        return (int)(Math.Floor((lon + 180.0) / 360.0 * (1 << z)));
-    //    }
+            // 修正一下，通常加 2 到 3 级比较清晰
+            z += 2;
 
-    //    private int LatToTileY(double lat, int z)
-    //    {
-    //        double latRad = lat * Math.PI / 180.0;
-    //        return (int)(Math.Floor((1.0 - Math.Log(Math.Tan(latRad) + 1.0 / Math.Cos(latRad)) / Math.PI) / 2.0 * (1 << z)));
-    //    }
+            // 限制范围 0-19
+            return Math.Max(0, Math.Min(19, z));
+        }
 
-    //    // 反算：瓦片坐标转屏幕矩形
-    //    private Rectangle GetScreenRect(int x, int y, int z, XView view)
-    //    {
-    //        // 算出瓦片的地理范围（经纬度）
-    //        double n = 1 << z;
-    //        double minLon = x / n * 360.0 - 180.0;
-    //        double maxLon = (x + 1) / n * 360.0 - 180.0;
+        // 经纬度转瓦片坐标 (Slippy Map 标准算法)
+        private void GetTileBounds(XExtent extent, int z, out int minX, out int maxX, out int minY, out int maxY)
+        {
+            minX = LongToTileX(extent.GetMinX(), z);
+            maxX = LongToTileX(extent.GetMaxX(), z);
+            // 注意 Y 轴：纬度越高 Y 越小 (Web Mercator 特性)
+            minY = LatToTileY(extent.GetMaxY(), z);
+            maxY = LatToTileY(extent.GetMinY(), z);
+        }
 
-    //        double latRad1 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * y / n)));
-    //        double latRad2 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * (y + 1) / n)));
-    //        double maxLat = latRad1 * 180.0 / Math.PI;
-    //        double minLat = latRad2 * 180.0 / Math.PI;
+        private int LongToTileX(double lon, int z)
+        {
+            return (int)(Math.Floor((lon + 180.0) / 360.0 * (1 << z)));
+        }
 
-    //        // 转屏幕坐标
-    //        Point p1 = view.ToScreenPoint(new XVertex(minLon, maxLat)); // 左上 (地理左上对应屏幕左上)
-    //        Point p2 = view.ToScreenPoint(new XVertex(maxLon, minLat)); // 右下
+        private int LatToTileY(double lat, int z)
+        {
+            // 【新增】强制限制纬度范围，防止 90 度导致的数学崩溃
+            // Web墨卡托的最大有效纬度约为 85.051128
+            if (lat > 85.05) lat = 85.05;
+            if (lat < -85.05) lat = -85.05;
 
-    //        return new Rectangle(p1.X, p1.Y, p2.X - p1.X, p2.Y - p1.Y);
-    //    }
-    
-}
+            double latRad = lat * Math.PI / 180.0;
+            return (int)(Math.Floor((1.0 - Math.Log(Math.Tan(latRad) + 1.0 / Math.Cos(latRad)) / Math.PI) / 2.0 * (1 << z)));
+        }
+
+        // 反算：瓦片坐标转屏幕矩形
+        private Rectangle GetScreenRect(int x, int y, int z, XView view)
+        {
+            // 算出瓦片的地理范围（经纬度）
+            double n = 1 << z;
+            double minLon = x / n * 360.0 - 180.0;
+            double maxLon = (x + 1) / n * 360.0 - 180.0;
+
+            double latRad1 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * y / n)));
+            double latRad2 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * (y + 1) / n)));
+            double maxLat = latRad1 * 180.0 / Math.PI;
+            double minLat = latRad2 * 180.0 / Math.PI;
+
+            // 转屏幕坐标
+            Point p1 = view.ToScreenPoint(new XVertex(minLon, maxLat)); // 左上 (地理左上对应屏幕左上)
+            Point p2 = view.ToScreenPoint(new XVertex(maxLon, minLat)); // 右下
+
+            return new Rectangle(p1.X, p1.Y, p2.X - p1.X, p2.Y - p1.Y);
+        }
+    }
+    }
 
