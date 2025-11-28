@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -832,7 +833,7 @@ namespace XGIS
     {
         public XExtent CurrentMapExtent;
         Rectangle MapWindowSize;
-
+        public XExtent TargetExtent = null; // 目标范围
         double MapMinX, MapMinY;
         int WinW, WinH;
         double MapW, MapH;
@@ -922,6 +923,11 @@ namespace XGIS
         internal void OffsetCenter(XVertex fromV, XVertex toV)
         {
             CurrentMapExtent.OffsetCenter(fromV, toV);
+            if (TargetExtent != null)
+            {
+                TargetExtent.OffsetCenter(fromV, toV);
+            }
+
             Update(CurrentMapExtent, MapWindowSize);
         }
 
@@ -951,12 +957,43 @@ namespace XGIS
             // 4. 更新视图 (这一步很重要，重新计算 Scale 等参数)
             Update(CurrentMapExtent, MapWindowSize);
         }
+        // 修改/添加设定目标的方法
+        public void SetZoomTarget(Point screenPoint, bool isZoomIn)
+        {
+            // 如果 TargetExtent 还没初始化，就先等于当前范围
+            if (TargetExtent == null) TargetExtent = new XExtent(CurrentMapExtent);
+
+            // 1. 获取鼠标当前指向的地理坐标 (基于当前视图，或者基于正在变化的目标视图)
+            // 为了连贯性，我们通常基于当前的 TargetExtent 进行计算，或者简化处理
+            XVertex mouseLocation = ToMapVertex(screenPoint);
+
+            // 2. 缩放系数 (建议改成 1.2 或 1.5，不要太大，因为动画会显得缩放很大)
+            double zoomFactor = 1.5;
+            double ratio = isZoomIn ? zoomFactor : (1 / zoomFactor);
+
+            // 3. 计算目标范围（注意：是对 TargetExtent 进行操作，而不是 CurrentMapExtent）
+            TargetExtent.ZoomToCenter(mouseLocation, ratio);
+        }
+
+        // 每一帧动画调用的方法
+        public bool UpdateBuffer()
+        {
+            if (TargetExtent == null) return true;
+
+            // 让当前范围向目标范围移动，速度 0.3 (即每帧走剩余路程的30%)
+            bool finished = CurrentMapExtent.InterpolateTo(TargetExtent, 0.5);
+
+            // 【关键】更新视图参数（ScaleX, ScaleY等），否则画面会错位
+            Update(CurrentMapExtent, MapWindowSize);
+
+            return finished;
+        }
     }
     public class XExtent
     {
         public XVertex bottomLeft, upRight;
 
-
+        
         double ZoomFactor = 1.2;
         double MovingFactor = 0.25;
 
@@ -1044,7 +1081,34 @@ namespace XGIS
             upRight.x = center.x + (upRight.x - center.x) / ratio;
             upRight.y = center.y + (upRight.y - center.y) / ratio;
         }
+        // 在 XExtent 类中添加
+        public bool InterpolateTo(XExtent target, double speed)
+        {
+            // speed 是移动速度，0.1 到 0.5 之间比较合适
+            // 分别计算四个边界的差值
+            double diffMinX = target.GetMinX() - this.GetMinX();
+            double diffMinY = target.GetMinY() - this.GetMinY();
+            double diffMaxX = target.GetMaxX() - this.GetMaxX();
+            double diffMaxY = target.GetMaxY() - this.GetMaxY();
 
+            // 如果差距已经非常小（小于千分之一），就直接到位，并告诉外面“完事了”
+            if (Math.Abs(diffMinX) < 0.0000001 && Math.Abs(diffMinY) < 0.0000001)
+            {
+                this.bottomLeft.x = target.bottomLeft.x;
+                this.bottomLeft.y = target.bottomLeft.y;
+                this.upRight.x = target.upRight.x;
+                this.upRight.y = target.upRight.y;
+                return true; // 动画结束
+            }
+
+            // 否则，每次只走差值的 speed 倍 (渐进趋近算法)
+            this.bottomLeft.x += diffMinX * speed;
+            this.bottomLeft.y += diffMinY * speed;
+            this.upRight.x += diffMaxX * speed;
+            this.upRight.y += diffMaxY * speed;
+
+            return false; // 动画还没结束
+        }
         internal double GetHeight()
         {
             return upRight.y - bottomLeft.y;
@@ -1513,4 +1577,165 @@ namespace XGIS
             return count % 2 != 0;
         }
     }
+    //public class XTileLayer
+    //{
+    //    public string Name = "Basemap";
+    //    public bool Visible = true;
+    //    private string UrlTemplate; // URL 模板
+
+    //    // 简单的内存缓存，存已经下载的图片
+    //    private Dictionary<string, Image> tileCache = new Dictionary<string, Image>();
+
+    //    // 正在下载的任务列表，防止重复下载同一个
+    //    private List<string> downloading = new List<string>();
+
+    //    public XTileLayer(string urlTemplate)
+    //    {
+    //        UrlTemplate = urlTemplate;
+    //    }
+
+    //    // 画图核心方法
+    //    public void Draw(Graphics g, XView view)
+    //    {
+    //        if (!Visible) return;
+
+    //        // 1. 根据当前比例尺计算 Zoom Level (Z)
+    //        // 这是一个经验公式，估算当前的缩放层级
+    //        int zoom = CalculateZoomLevel(view);
+
+    //        // 2. 计算当前视图范围内包含哪些瓦片 (Tile X, Tile Y)
+    //        GetTileBounds(view.CurrentMapExtent, zoom, out int minX, out int maxX, out int minY, out int maxY);
+
+    //        // 3. 循环遍历所有需要的瓦片
+    //        for (int x = minX; x <= maxX; x++)
+    //        {
+    //            for (int y = minY; y <= maxY; y++)
+    //            {
+    //                // 生成缓存的 Key
+    //                string key = $"{zoom}/{y}/{x}";
+
+    //                // 如果缓存里有，直接画
+    //                if (tileCache.ContainsKey(key))
+    //                {
+    //                    Image img = tileCache[key];
+    //                    // 计算图片在屏幕上的位置
+    //                    Rectangle rect = GetScreenRect(x, y, zoom, view);
+
+    //                    // 可能会有投影变形，这里做简单的拉伸绘制
+    //                    g.DrawImage(img, rect);
+    //                }
+    //                else
+    //                {
+    //                    // 如果没有，且没在下载中，就去后台下载
+    //                    if (!downloading.Contains(key))
+    //                    {
+    //                        DownloadTileAsync(x, y, zoom, key, view);
+    //                    }
+    //                }
+    //            }
+    //        }
+    //    }
+
+    //    // 异步下载瓦片
+    //    private async void DownloadTileAsync(int x, int y, int z, string key, XView view)
+    //    {
+    //        downloading.Add(key);
+    //        try
+    //        {
+    //            // 替换 URL 中的参数
+    //            string url = UrlTemplate.Replace("{x}", x.ToString())
+    //                                    .Replace("{y}", y.ToString())
+    //                                    .Replace("{z}", z.ToString());
+
+    //            using (WebClient client = new WebClient())
+    //            {
+    //                // 模拟浏览器 UserAgent，防止被拦截
+    //                client.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    //                byte[] data = await client.DownloadDataTaskAsync(new Uri(url));
+
+    //                using (var ms = new MemoryStream(data))
+    //                {
+    //                    Image img = Image.FromStream(ms);
+    //                    // 存入缓存
+    //                    if (!tileCache.ContainsKey(key))
+    //                    {
+    //                        tileCache.Add(key, img);
+    //                    }
+    //                }
+    //            }
+    //        }
+    //        catch
+    //        {
+    //            // 下载失败就算了，可能是网络问题或没有这个瓦片
+    //        }
+    //        finally
+    //        {
+    //            downloading.Remove(key);
+    //        }
+
+    //        // 下载完成后，通知主界面重绘（这一步稍微有点 tricky，需要用到 Form 的引用或者事件，这里简化处理，稍后在 Form1 配合）
+    //    }
+
+    //    // ================= 工具算法区 =================
+
+    //    // 估算 Zoom Level
+    //    private int CalculateZoomLevel(XView view)
+    //    {
+    //        // 地球赤道周长约 40075016 米
+    //        // 简单估算：看当前视图跨度占地球的比例
+    //        // 注意：这里假设 view 的坐标系是经纬度 (WGS84)
+    //        double widthInDegrees = view.CurrentMapExtent.GetWidth();
+
+    //        // 360度 / 宽度度数，取 Log2 得到层级
+    //        int z = (int)Math.Floor(Math.Log(360.0 / widthInDegrees, 2));
+
+    //        // 修正一下，通常加 2 到 3 级比较清晰
+    //        z += 2;
+
+    //        // 限制范围 0-19
+    //        return Math.Max(0, Math.Min(19, z));
+    //    }
+
+    //    // 经纬度转瓦片坐标 (Slippy Map 标准算法)
+    //    private void GetTileBounds(XExtent extent, int z, out int minX, out int maxX, out int minY, out int maxY)
+    //    {
+    //        minX = LongToTileX(extent.GetMinX(), z);
+    //        maxX = LongToTileX(extent.GetMaxX(), z);
+    //        // 注意 Y 轴：纬度越高 Y 越小 (Web Mercator 特性)
+    //        minY = LatToTileY(extent.GetMaxY(), z);
+    //        maxY = LatToTileY(extent.GetMinY(), z);
+    //    }
+
+    //    private int LongToTileX(double lon, int z)
+    //    {
+    //        return (int)(Math.Floor((lon + 180.0) / 360.0 * (1 << z)));
+    //    }
+
+    //    private int LatToTileY(double lat, int z)
+    //    {
+    //        double latRad = lat * Math.PI / 180.0;
+    //        return (int)(Math.Floor((1.0 - Math.Log(Math.Tan(latRad) + 1.0 / Math.Cos(latRad)) / Math.PI) / 2.0 * (1 << z)));
+    //    }
+
+    //    // 反算：瓦片坐标转屏幕矩形
+    //    private Rectangle GetScreenRect(int x, int y, int z, XView view)
+    //    {
+    //        // 算出瓦片的地理范围（经纬度）
+    //        double n = 1 << z;
+    //        double minLon = x / n * 360.0 - 180.0;
+    //        double maxLon = (x + 1) / n * 360.0 - 180.0;
+
+    //        double latRad1 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * y / n)));
+    //        double latRad2 = Math.Atan(Math.Sinh(Math.PI * (1 - 2 * (y + 1) / n)));
+    //        double maxLat = latRad1 * 180.0 / Math.PI;
+    //        double minLat = latRad2 * 180.0 / Math.PI;
+
+    //        // 转屏幕坐标
+    //        Point p1 = view.ToScreenPoint(new XVertex(minLon, maxLat)); // 左上 (地理左上对应屏幕左上)
+    //        Point p2 = view.ToScreenPoint(new XVertex(maxLon, minLat)); // 右下
+
+    //        return new Rectangle(p1.X, p1.Y, p2.X - p1.X, p2.Y - p1.Y);
+    //    }
+    
 }
+

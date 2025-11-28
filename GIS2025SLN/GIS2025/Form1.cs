@@ -21,16 +21,69 @@ namespace GIS2025
         Bitmap iconEyeOpen;
         Bitmap iconEyeClose;
 
+        // 我们需要一个定时器来不断刷新正在下载的底图
+        Timer timerDownloadCheck = new Timer();
+
         // 交互状态变量
         Point MouseDownLocation, MouseMovingLocation;
         XExploreActions currentMouseAction = XExploreActions.noaction;
         private TreeNode dropTargetNode = null;
-
+        Timer timerZoom = new Timer();
         public FormMap()
         {
             InitializeComponent();
+
+            
+        
+
             mapBox.MouseWheel += mapBox_MouseWheel;
+            mapBox.MouseLeave += MapBox_MouseLeave;
+            timerZoom.Interval = 10; // 15毫秒刷新一次，约等于 60 FPS
+            timerZoom.Tick += TimerZoom_Tick; // 绑定事件
+
+
+
+
             view = new XView(new XExtent(0, 1, 0, 1), mapBox.ClientRectangle);
+
+            //// 1. 初始化底图 (使用 ArcGIS Topo Map)
+            //string url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+            //basemapLayer = new XTileLayer(url);
+            //basemapLayer.Name = "World Topo Map";
+
+            //// 2. 把底图加到 TreeView 的最底部
+            //TreeNode baseNode = new TreeNode(basemapLayer.Name);
+            //baseNode.Tag = basemapLayer; // 绑定对象
+            //baseNode.Checked = true;
+            //treeView1.Nodes.Add(baseNode); // Add 是加到末尾，也就是最底层
+
+            //// 3. 设置下载刷新定时器
+            //// 因为下载是异步的，下载完后需要通知界面重绘。简单做法是用个 Timer 每 0.5 秒刷一下
+            //timerDownloadCheck.Interval = 500;
+            //timerDownloadCheck.Tick += (s, e) => { UpdateMap(); };
+            //timerDownloadCheck.Start();
+
+            //// 4. 初始化视图为全球范围 (经纬度)
+            //view.Update(new XExtent(-180, 180, -90, 90), mapBox.ClientRectangle);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
             List<XVectorLayer> layers = new List<XVectorLayer>();
 
@@ -54,6 +107,12 @@ namespace GIS2025
 
 
         }
+
+        private void MapBox_MouseLeave(object sender, EventArgs e)
+        {
+            lblCoordinates.Text = "Ready";
+        }
+
         private void UpdateMap()
         {
             if (view == null) return;
@@ -76,14 +135,15 @@ namespace GIS2025
             for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
             {
                 TreeNode node = treeView1.Nodes[i];
-                // 从 Tag 里取出图层数据
-                XVectorLayer layer = (XVectorLayer)node.Tag;
+                if (!node.Checked) continue;
 
-                // 只有打钩了才画
-                if (node.Checked)
+                // 【关键修改】判断节点里的 Tag 是哪种图层
+                if (node.Tag is XVectorLayer vectorLayer)
                 {
-                    layer.draw(g, view);
+                    // 是矢量图层，用原来的画法
+                    vectorLayer.draw(g, view);
                 }
+                
             }
 
             g.Dispose();
@@ -149,7 +209,7 @@ namespace GIS2025
             // 1. 显示坐标 (假设你底部的 Label 叫 lblCoordinates)
             XVertex mapVertex = view.ToMapVertex(e.Location);
             // 这里记得把 labelXY 换成你 StatusStrip 上那个 Label 的名字
-            // labelXY.Text = $"X: {mapVertex.X:F2}, Y: {mapVertex.Y:F2}"; 
+            lblCoordinates.Text = $"X: {mapVertex.x:F2}, Y: {mapVertex.y:F2}";
 
             // 2. 处理交互反馈
             MouseMovingLocation = e.Location;
@@ -160,6 +220,7 @@ namespace GIS2025
                 mapBox.Invalidate();
             }
         }
+
 
         private void mapBox_MouseUp(object sender, MouseEventArgs e)
         {
@@ -190,9 +251,14 @@ namespace GIS2025
         private void mapBox_MouseWheel(object sender, MouseEventArgs e)
         {
             if (e.Delta > 0)
-                view.ZoomByScreenPoint(e.Location, true);
+                view.SetZoomTarget(e.Location, true);
             else
-                view.ZoomByScreenPoint(e.Location, false);
+                view.SetZoomTarget(e.Location, false);
+            // 2. 启动定时器，开始动画
+            if (!timerZoom.Enabled)
+            {
+                timerZoom.Start();
+            }
 
             UpdateMap();
         }
@@ -201,6 +267,24 @@ namespace GIS2025
         private void mapBox_SizeChanged(object sender, EventArgs e)
         {
             UpdateMap();
+        }
+        private void TimerZoom_Tick(object sender, EventArgs e)
+        {
+            // 1. 让 View 往前走一步
+            bool finished = view.UpdateBuffer();
+
+            // 2. 刷新画面
+            UpdateMap();
+
+            // 3. 如果已经到了目标位置
+            if (finished)
+            {
+                timerZoom.Stop();
+
+                // 【新增这行】动画结束了，把目标清空。
+                // 这样如果你接下来进行平移操作，下次缩放时会基于新的平移位置重新生成目标，不会乱跳。
+                view.TargetExtent = null;
+            }
         }
 
         // ====================================================================
@@ -320,9 +404,6 @@ namespace GIS2025
             UpdateMap();
         }
 
-        // =================================================================
-        // 1. 自定义绘制 (解决丑陋问题 + 画指示线)
-        // =================================================================
         private void treeView1_DrawNode(object sender, DrawTreeNodeEventArgs e)
         {
             // 1. 开启抗锯齿，让文字和线条平滑
@@ -339,7 +420,7 @@ namespace GIS2025
             }
 
             // --- 核心修改：定义严格的区域 ---
-            int iconWidth = 24; // 眼睛图标的点击宽度
+            int iconWidth = 30; // 眼睛图标的点击宽度
             int clickLimit = 24;
             // 1. 计算眼睛的位置 (在 Bounds 的最左侧，居中)
             // 假设图片是 20x20
