@@ -95,6 +95,7 @@ namespace GIS2025
             treeView1.DragLeave += treeView1_DragLeave;
             treeView1.DrawNode += treeView1_DrawNode;
             treeView1.MouseDown += treeView1_MouseDown; // 新增：处理点击眼睛图标
+            treeView1.MouseMove += treeView1_MouseMove;
 
 
 
@@ -633,29 +634,63 @@ namespace GIS2025
             dropTargetNode = null;
             treeView1.Invalidate();
         }
+
+        Point TreeMouseDownLocation;
         private void treeView1_MouseDown(object sender, MouseEventArgs e)
         {
-            TreeNode node = treeView1.GetNodeAt(e.X, e.Y);
-            if (node == null) return;
+            // 【关键修改 1】使用 HitTest 代替 GetNodeAt
+            // HitTest 可以识别点击位置的状态（在文字上、在图标上、还是在右侧空白处）
+            TreeViewHitTestInfo info = treeView1.HitTest(e.Location);
+
+            // 如果没点到任何行（比如点到了最下面的空白），直接返回
+            if (info.Node == null) return;
+
+            TreeNode node = info.Node;
+            TreeMouseDownLocation = e.Location; // 记录按下的位置
 
             // 计算点击位置相对于节点左边缘的距离
             int diff = e.X - node.Bounds.X;
 
-            // 【关键修改】严格判定
+            // --- 眼睛图标逻辑保持不变 ---
             // 只有点击在前 24 像素内，才算点中眼睛
-            // 因为文字是从第 30 像素开始画的，所以点文字(>30)绝对不会进这个 if
             if (diff >= 0 && diff <= 24)
             {
                 node.Checked = !node.Checked;
                 treeView1.Invalidate();
                 UpdateMap();
+                // 如果点的是眼睛，就不进行后续的选中或准备拖动了
+                return;
             }
-            else
+
+            // --- 【关键修改 2】选中逻辑 ---
+            // 只要不是点眼睛，无论点文字还是右边大片的空白，都算选中该行
+            treeView1.SelectedNode = node;
+        }
+        private void treeView1_MouseMove(object sender, MouseEventArgs e)
+        {
+            // 1. 必须是左键按住的状态
+            if (e.Button != MouseButtons.Left) return;
+
+            // 2. 必须有一个当前选中的节点
+            if (treeView1.SelectedNode == null) return;
+
+            // 3. 【关键】防抖动检测
+            // 只有当鼠标移动超过一定距离（比如系统设定的拖拽阈值）时，才算真正的拖动。
+            // 这样可以避免点击的时候手抖误触发拖动。
+            Size dragSize = SystemInformation.DragSize;
+            Rectangle dragRect = new Rectangle(
+                new Point(TreeMouseDownLocation.X - dragSize.Width / 2,
+                          TreeMouseDownLocation.Y - dragSize.Height / 2),
+                dragSize);
+
+            // 如果鼠标移出了那个小小的“静止区域”，说明用户想拖动了
+            if (!dragRect.Contains(e.Location))
             {
-                // 只要大于 24，哪怕是 25, 26 空白处，或者 30 的文字处，都算选中
-                treeView1.SelectedNode = node;
+                // 手动发起拖动！
+                // 这行代码和你原本 ItemDrag 里的代码是一样的效果
+                DoDragDrop(treeView1.SelectedNode, DragDropEffects.Move);
             }
         }
-    
+
     }
 }
