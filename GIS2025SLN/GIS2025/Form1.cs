@@ -30,11 +30,14 @@ namespace GIS2025
         XExploreActions currentMouseAction = XExploreActions.noaction;
         private TreeNode dropTargetNode = null;
         Timer timerZoom = new Timer();
+        // 1. 新增：记录当前激活的工具（默认是漫游）
+        XExploreActions baseTool = XExploreActions.pan;
         public FormMap()
         {
             InitializeComponent();
             // 1. 网络协议设置 (天地图也需要)
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
 
             // 2. 初始化 View (记得要用 -85 到 85，防止卡死！)
             view = new XView(new XExtent(-180, 180, -85, 85), mapBox.ClientRectangle);
@@ -163,57 +166,78 @@ namespace GIS2025
         private void mapBox_Paint(object sender, PaintEventArgs e)
         {
             if (backwindow == null) return;
-
-            // 处理动态交互的绘制（比如拖动时的残影，或者拉框的红框）
             if (currentMouseAction == XExploreActions.pan)
             {
-                // 漫游时：画出偏移后的图片
                 e.Graphics.DrawImage(backwindow,
                     MouseMovingLocation.X - MouseDownLocation.X,
                     MouseMovingLocation.Y - MouseDownLocation.Y);
             }
-            else if (currentMouseAction == XExploreActions.zoominbybox ||
-             (currentMouseAction == XExploreActions.select && Control.MouseButtons == MouseButtons.Left))
-            {
-                // 拉框时：先画底图，再画上面的红框
-                e.Graphics.DrawImage(backwindow, 0, 0);
-
-                int x = Math.Min(MouseDownLocation.X, MouseMovingLocation.X);
-                int y = Math.Min(MouseDownLocation.Y, MouseMovingLocation.Y);
-                int width = Math.Abs(MouseDownLocation.X - MouseMovingLocation.X);
-                int height = Math.Abs(MouseDownLocation.Y - MouseMovingLocation.Y);
-
-                Color boxColor = (currentMouseAction == XExploreActions.select) ? Color.Blue : Color.Red;
-
-                using (Pen pen = new Pen(new SolidBrush(boxColor), 2))
-                {
-                    e.Graphics.DrawRectangle(pen, x, y, width, height);
-                }
-            }
+            // 情况 B：其他所有情况（静止、框选、点选）-> 画在原点 (0,0)
+            // 【关键】这一步绝对不能少，否则松开鼠标地图就消失了！
             else
             {
-                // 正常状态：直接把内存里的图贴出来
                 e.Graphics.DrawImage(backwindow, 0, 0);
+
+                // 3. 只有在画在原点的情况下，才考虑要不要画上面的红框/蓝框
+                // 这样可以避免漫游时画框，也能保证静止时能看到图
+                if (currentMouseAction == XExploreActions.zoominbybox ||
+                    currentMouseAction == XExploreActions.select)
+                {
+                    // 计算框的参数
+                    int x = Math.Min(MouseDownLocation.X, MouseMovingLocation.X);
+                    int y = Math.Min(MouseDownLocation.Y, MouseMovingLocation.Y);
+                    int width = Math.Abs(MouseDownLocation.X - MouseMovingLocation.X);
+                    int height = Math.Abs(MouseDownLocation.Y - MouseMovingLocation.Y);
+
+                    // 只有当鼠标真的动了（宽高大于0）才画框，避免点选时出现小杂点
+                    if (width > 0 && height > 0)
+                    {
+                        Color boxColor = (currentMouseAction == XExploreActions.select) ? Color.Blue : Color.Red;
+                        // 使用 Pen 而不是 Brush，画空心框
+                        using (Pen pen = new Pen(boxColor, 2))
+                        {
+                            e.Graphics.DrawRectangle(pen, x, y, width, height);
+                        }
+                    }
+                }
             }
         }
 
         private void mapBox_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Left) return;
+            // 1. 【解决问题2】屏蔽右键：如果不是左键或中键，直接返回
+            if (e.Button == MouseButtons.Right) return;
 
             MouseDownLocation = e.Location;
 
-            // 1. 如果按住 Shift，强制进入拉框放大
+            // 2. 处理 Shift 拉框放大 (优先级最高)
             if (Control.ModifierKeys == Keys.Shift)
             {
                 currentMouseAction = XExploreActions.zoominbybox;
+                return; // 结束，不再判断后面的
             }
-            // 2. 【关键修改】只有当前不是选择模式时，才默认为漫游模式！
-            // 如果你已经在按钮里把 currentMouseAction 设为 select 了，这里就不要改它
-            else if (currentMouseAction != XExploreActions.select)
+
+            // 3. 【解决问题2】中键逻辑：无论当前是什么工具，按中键强制漫游
+            if (e.Button == MouseButtons.Middle)
             {
                 currentMouseAction = XExploreActions.pan;
-                mapBox.Cursor = Cursors.Hand; // 顺便把鼠标变成小手
+                mapBox.Cursor = Cursors.Hand; // 临时变手
+                return;
+            }
+
+            // 4. 左键逻辑：根据当前选中的工具 (baseTool) 决定动作
+            if (e.Button == MouseButtons.Left)
+            {
+                // 如果当前工具是选择，那就开始选择
+                if (baseTool == XExploreActions.select)
+                {
+                    currentMouseAction = XExploreActions.select;
+                }
+                // 如果当前工具是漫游，那就开始漫游
+                else if (baseTool == XExploreActions.pan)
+                {
+                    currentMouseAction = XExploreActions.pan;
+                }
             }
         }
 
@@ -224,13 +248,18 @@ namespace GIS2025
             // 这里记得把 labelXY 换成你 StatusStrip 上那个 Label 的名字
             lblCoordinates.Text = $"X: {mapVertex.x:F2}, Y: {mapVertex.y:F2}";
 
-            // 2. 处理交互反馈
+            // 【解决问题3】关键检查：如果当前没有动作（鼠标没按下），直接退出！
+            // 这样就不会出现“鼠标一动地图就跑”的灵异现象了
+            if (currentMouseAction == XExploreActions.noaction) return;
+
+            // 记录移动位置
             MouseMovingLocation = e.Location;
-            if (currentMouseAction == XExploreActions.zoominbybox ||
-                currentMouseAction == XExploreActions.pan ||
+
+            // 只有在真正操作时才重绘
+            if (currentMouseAction == XExploreActions.pan ||
+                currentMouseAction == XExploreActions.zoominbybox ||
                 currentMouseAction == XExploreActions.select)
             {
-                // 只有在拖动或拉框时才刷新，为了流畅
                 mapBox.Invalidate();
             }
         }
@@ -311,12 +340,13 @@ namespace GIS2025
                 UpdateSelectionStatus();
             }
 
-            // 只有非选择模式才重置 Action？
-            // 通常选择工具是持续生效的，所以这里保留 select 状态，不重置为 noaction
-            if (currentMouseAction != XExploreActions.select)
-            {
-                currentMouseAction = XExploreActions.noaction;
-            }
+            currentMouseAction = XExploreActions.noaction;
+
+            // 恢复光标样式 (根据 baseTool 恢复)
+            if (baseTool == XExploreActions.pan)
+                mapBox.Cursor = Cursors.Hand;
+            else
+                mapBox.Cursor = Cursors.Default;
             UpdateMap(); // 动作结束，生成新图
         }
 
@@ -391,8 +421,8 @@ namespace GIS2025
 
         private void explore_button_Click(object sender, EventArgs e)
         {
-            // 切换当前动作为 Pan (平移)
-            currentMouseAction = XExploreActions.pan;
+            baseTool = XExploreActions.pan; // 只记录“我现在想用漫游工具”
+            currentMouseAction = XExploreActions.noaction; // 此时还没按下鼠标，所以是无动作
             mapBox.Cursor = Cursors.Hand;
         }
 
@@ -455,23 +485,17 @@ namespace GIS2025
         }
 
 
-
-        // 按钮：漫游 (其实默认就是漫游，这个按钮可以用来重置状态)
-        private void btnExplore_Click(object sender, EventArgs e)
-        {
-            currentMouseAction = XExploreActions.pan;
-            // 可以给用户一个提示，或者把鼠标样式变一下
-            mapBox.Cursor = Cursors.Hand;
-        }
         private void treeView1_ItemDrag(object sender, ItemDragEventArgs e)
         {
+            // 强制清除地图操作状态，防止出现蓝框
+            currentMouseAction = XExploreActions.noaction;
             // 开始拖动选中的节点
             DoDragDrop(e.Item, DragDropEffects.Move);
         }
         private void btnSelect_Click(object sender, EventArgs e)
         {
-            // 切换到选择模式
-            currentMouseAction = XExploreActions.select;
+            baseTool = XExploreActions.select; // 只记录“我现在想用选择工具”
+            currentMouseAction = XExploreActions.noaction;
             // 鼠标变成箭头（通常选择模式用默认箭头）
             mapBox.Cursor = Cursors.Default;
         }
