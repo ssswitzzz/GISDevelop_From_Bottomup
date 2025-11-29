@@ -98,6 +98,19 @@ namespace GIS2025
 
 
         }
+        private void UpdateSelectionStatus()
+        {
+            int totalCount = 0;
+            foreach (TreeNode node in treeView1.Nodes)
+            {
+                if (node.Tag is XVectorLayer layer)
+                {
+                    totalCount += layer.SelectedFeatures.Count;
+                }
+            }
+
+            lblSelectCount.Text = $"选中要素: {totalCount}";
+        }
 
         private void MapBox_MouseLeave(object sender, EventArgs e)
         {
@@ -147,7 +160,6 @@ namespace GIS2025
             mapBox.Invalidate();
         }
 
-        // 这个事件要绑定到 mapBox 的 Paint 事件上！不是 Form 的 Paint！
         private void mapBox_Paint(object sender, PaintEventArgs e)
         {
             if (backwindow == null) return;
@@ -160,7 +172,8 @@ namespace GIS2025
                     MouseMovingLocation.X - MouseDownLocation.X,
                     MouseMovingLocation.Y - MouseDownLocation.Y);
             }
-            else if (currentMouseAction == XExploreActions.zoominbybox)
+            else if (currentMouseAction == XExploreActions.zoominbybox ||
+             (currentMouseAction == XExploreActions.select && Control.MouseButtons == MouseButtons.Left))
             {
                 // 拉框时：先画底图，再画上面的红框
                 e.Graphics.DrawImage(backwindow, 0, 0);
@@ -170,9 +183,12 @@ namespace GIS2025
                 int width = Math.Abs(MouseDownLocation.X - MouseMovingLocation.X);
                 int height = Math.Abs(MouseDownLocation.Y - MouseMovingLocation.Y);
 
-                e.Graphics.DrawRectangle(
-                    new Pen(new SolidBrush(Color.Red), 2),
-                    x, y, width, height);
+                Color boxColor = (currentMouseAction == XExploreActions.select) ? Color.Blue : Color.Red;
+
+                using (Pen pen = new Pen(new SolidBrush(boxColor), 2))
+                {
+                    e.Graphics.DrawRectangle(pen, x, y, width, height);
+                }
             }
             else
             {
@@ -181,22 +197,24 @@ namespace GIS2025
             }
         }
 
-        // ====================================================================
-        // 2. 鼠标交互逻辑 (全部绑定到 mapBox 上)
-        // ====================================================================
-
         private void mapBox_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left) return;
 
             MouseDownLocation = e.Location;
 
-            // 按住 Shift 键进入拉框放大模式
+            // 1. 如果按住 Shift，强制进入拉框放大
             if (Control.ModifierKeys == Keys.Shift)
+            {
                 currentMouseAction = XExploreActions.zoominbybox;
-            // 默认就是漫游模式 (Pan)
-            else
+            }
+            // 2. 【关键修改】只有当前不是选择模式时，才默认为漫游模式！
+            // 如果你已经在按钮里把 currentMouseAction 设为 select 了，这里就不要改它
+            else if (currentMouseAction != XExploreActions.select)
+            {
                 currentMouseAction = XExploreActions.pan;
+                mapBox.Cursor = Cursors.Hand; // 顺便把鼠标变成小手
+            }
         }
 
         private void mapBox_MouseMove(object sender, MouseEventArgs e)
@@ -209,7 +227,8 @@ namespace GIS2025
             // 2. 处理交互反馈
             MouseMovingLocation = e.Location;
             if (currentMouseAction == XExploreActions.zoominbybox ||
-                currentMouseAction == XExploreActions.pan)
+                currentMouseAction == XExploreActions.pan ||
+                currentMouseAction == XExploreActions.select)
             {
                 // 只有在拖动或拉框时才刷新，为了流畅
                 mapBox.Invalidate();
@@ -219,7 +238,7 @@ namespace GIS2025
 
         private void mapBox_MouseUp(object sender, MouseEventArgs e)
         {
-            if (MouseDownLocation == e.Location)
+            if (MouseDownLocation == e.Location && currentMouseAction != XExploreActions.select)
             {
                 currentMouseAction = XExploreActions.noaction;
                 return;
@@ -228,17 +247,76 @@ namespace GIS2025
             XVertex v1 = view.ToMapVertex(MouseDownLocation);
             XVertex v2 = view.ToMapVertex(e.Location);
 
+            // 1. 处理拉框放大 (保持原有逻辑)
             if (currentMouseAction == XExploreActions.zoominbybox)
             {
-                XExtent extent = new XExtent(v1, v2);
-                view.Update(extent, mapBox.ClientRectangle);
+                // ... 原有放大逻辑 ...
+                if (Math.Abs(MouseDownLocation.X - e.X) > 2) // 防止误触
+                {
+                    XExtent extent = new XExtent(v1, v2);
+                    view.Update(extent, mapBox.ClientRectangle);
+                }
             }
+            // 2. 处理漫游 (保持原有逻辑)
             else if (currentMouseAction == XExploreActions.pan)
             {
                 view.OffsetCenter(v1, v2);
             }
+            // 3. 【新增】处理选择逻辑
+            else if (currentMouseAction == XExploreActions.select)
+            {
+                // 计算屏幕上的拖拽距离
+                int dx = Math.Abs(MouseDownLocation.X - e.X);
+                int dy = Math.Abs(MouseDownLocation.Y - e.Y);
 
-            currentMouseAction = XExploreActions.noaction;
+                // 如果按住了 Ctrl 键，表示“追加选择” (Modify = true)
+                // 否则是“新选择” (Modify = false，会清空之前的)
+                bool modify = (Control.ModifierKeys == Keys.Control);
+
+                // 判断是“点选”还是“框选” (阈值设为 5 像素)
+                if (dx < 5 && dy < 5)
+                {
+                    // === 点选模式 ===
+                    // 将屏幕上的 5 像素转化为地图上的实际距离作为容差
+                    double tolerance = view.ToMapDistance(5);
+
+                    // 倒序遍历图层（优先选择最上面的图层）
+                    // 注意：这里我们只处理 VectorLayer，跳过 TileLayer
+                    for (int i = 0; i < treeView1.Nodes.Count; i++)
+                    {
+                        TreeNode node = treeView1.Nodes[i];
+                        if (node.Checked && node.Tag is XVectorLayer layer)
+                        {
+                            layer.SelectByVertex(v1, tolerance, modify);
+                            // 如果只想选中最上层的一个，可以在这里 break;
+                            // 如果想“穿透选择”，就不要 break;
+                        }
+                    }
+                }
+                else
+                {
+                    // === 框选模式 ===
+                    XExtent selectExtent = new XExtent(v1, v2);
+
+                    foreach (TreeNode node in treeView1.Nodes)
+                    {
+                        if (node.Checked && node.Tag is XVectorLayer layer)
+                        {
+                            layer.SelectByExtent(selectExtent, modify);
+                        }
+                    }
+                }
+
+                // 更新状态栏显示的选中数量
+                UpdateSelectionStatus();
+            }
+
+            // 只有非选择模式才重置 Action？
+            // 通常选择工具是持续生效的，所以这里保留 select 状态，不重置为 noaction
+            if (currentMouseAction != XExploreActions.select)
+            {
+                currentMouseAction = XExploreActions.noaction;
+            }
             UpdateMap(); // 动作结束，生成新图
         }
 
@@ -390,6 +468,18 @@ namespace GIS2025
             // 开始拖动选中的节点
             DoDragDrop(e.Item, DragDropEffects.Move);
         }
+        private void btnSelect_Click(object sender, EventArgs e)
+        {
+            // 切换到选择模式
+            currentMouseAction = XExploreActions.select;
+            // 鼠标变成箭头（通常选择模式用默认箭头）
+            mapBox.Cursor = Cursors.Default;
+        }
+
+
+
+        // -------------------------------
+        // TreeView界面
 
         // 拖拽进入区域
         private void treeView1_DragEnter(object sender, DragEventArgs e)

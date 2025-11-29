@@ -30,12 +30,14 @@
         {
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.lblCoordinates = new System.Windows.Forms.ToolStripStatusLabel();
+            this.lblSelectCount = new System.Windows.Forms.ToolStripStatusLabel();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.explore_button = new System.Windows.Forms.Button();
             this.button_ReadShp = new System.Windows.Forms.Button();
             this.button_FullExtent = new System.Windows.Forms.Button();
+            this.btnSelect = new System.Windows.Forms.Button();
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
@@ -55,7 +57,8 @@
             // 
             this.statusStrip1.ImageScalingSize = new System.Drawing.Size(24, 24);
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.lblCoordinates});
+            this.lblCoordinates,
+            this.lblSelectCount});
             this.statusStrip1.Location = new System.Drawing.Point(0, 987);
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Size = new System.Drawing.Size(1706, 31);
@@ -67,6 +70,12 @@
             this.lblCoordinates.Name = "lblCoordinates";
             this.lblCoordinates.Size = new System.Drawing.Size(114, 24);
             this.lblCoordinates.Text = "Coordinates";
+            // 
+            // lblSelectCount
+            // 
+            this.lblSelectCount.Name = "lblSelectCount";
+            this.lblSelectCount.Size = new System.Drawing.Size(75, 24);
+            this.lblSelectCount.Text = "选中：0";
             // 
             // tabControl1
             // 
@@ -96,6 +105,7 @@
             this.flowLayoutPanel1.Controls.Add(this.explore_button);
             this.flowLayoutPanel1.Controls.Add(this.button_ReadShp);
             this.flowLayoutPanel1.Controls.Add(this.button_FullExtent);
+            this.flowLayoutPanel1.Controls.Add(this.btnSelect);
             this.flowLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowLayoutPanel1.Location = new System.Drawing.Point(3, 3);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
@@ -134,6 +144,17 @@
             this.button_FullExtent.Text = "全图";
             this.button_FullExtent.UseVisualStyleBackColor = true;
             this.button_FullExtent.Click += new System.EventHandler(this.button_FullExtent_Click);
+            // 
+            // btnSelect
+            // 
+            this.btnSelect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSelect.Location = new System.Drawing.Point(382, 3);
+            this.btnSelect.Name = "btnSelect";
+            this.btnSelect.Size = new System.Drawing.Size(113, 69);
+            this.btnSelect.TabIndex = 3;
+            this.btnSelect.Text = "选择";
+            this.btnSelect.UseVisualStyleBackColor = true;
+            this.btnSelect.Click += new System.EventHandler(this.btnSelect_Click);
             // 
             // tabPage2
             // 
@@ -230,6 +251,8 @@
         private System.Windows.Forms.PictureBox mapBox;
         private System.Windows.Forms.Button button_ReadShp;
         private System.Windows.Forms.Button button_FullExtent;
+        private System.Windows.Forms.ToolStripStatusLabel lblSelectCount;
+        private System.Windows.Forms.Button btnSelect;
     }
 }
 

@@ -30,12 +30,11 @@ namespace XGIS
         }
 
         public XThematic(Pen _LinePen,
-            Pen _PolygonPen, SolidBrush _PolygonBrush,
+            Pen _PolygonPen,
             Pen _PointPen, SolidBrush _PointBrush, int _PointRadius)
         {
             LinePen = _LinePen;
             PolygonPen = _PolygonPen;
-            PolygonBrush = _PolygonBrush;
             PointPen = _PointPen;
             PointBrush = _PointBrush;
             PointRadius = _PointRadius;
@@ -71,7 +70,7 @@ namespace XGIS
             List<SelectResult> selection = new List<SelectResult>();
             foreach (XFeature feature in features)
             {
-                if (extent.Includes(feature.spatial.extent))
+                if (extent.IntersectOrNot(feature.spatial.extent))
                     selection.Add(new SelectResult(feature, 0));
             }
             return selection;
@@ -631,10 +630,10 @@ namespace XGIS
             ShapeType = _shapetype;
 
             UnselectedThematic = new XThematic();
-
-            SelectedThematic = new XThematic(new Pen(Color.Red, 1),
-                new Pen(Color.Red, 1), new SolidBrush(Color.Pink),
-                new Pen(Color.Red, 1), new SolidBrush(Color.Pink), 5);
+            Color selectionFillColor = Color.FromArgb(0, 217, 217);
+            SelectedThematic = new XThematic(new Pen(Color.FromArgb(0, 217, 217), 1),
+                new Pen(Color.FromArgb(0, 230, 230), 3),
+                new Pen(selectionFillColor, 1), new SolidBrush(selectionFillColor), 5);
 
         }
 
@@ -1615,7 +1614,6 @@ namespace XGIS
 
             // 2. 如果 maxX 超过了最大编号，强制设为最大编号 (砍掉右边的重复世界)
             if (maxX > maxTileIndex) maxX = maxTileIndex;
-
 
             // 【新增】熔断机制：如果瓦片数量超过 100 张，直接不画
             // 原因：1. 可能是缩小到太小了，需要加载全球几百张图，性能扛不住
