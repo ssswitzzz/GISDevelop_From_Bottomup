@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.lblCoordinates = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblSelectCount = new System.Windows.Forms.ToolStripStatusLabel();
@@ -42,6 +43,11 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
+            this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -51,6 +57,7 @@
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
+            this.contextMenuLayer.SuspendLayout();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -163,7 +170,7 @@
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage2.Size = new System.Drawing.Size(1698, 78);
             this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "空间分析";
+            this.tabPage2.Text = "Layout";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
             // splitContainer1
@@ -211,6 +218,45 @@
             this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
             this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
             // 
+            // contextMenuLayer
+            // 
+            this.contextMenuLayer.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.contextMenuLayer.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.打开属性表ToolStripMenuItem,
+            this.缩放至图层ToolStripMenuItem,
+            this.注记ToolStripMenuItem,
+            this.移除图层ToolStripMenuItem});
+            this.contextMenuLayer.Name = "contextMenuLayer";
+            this.contextMenuLayer.Size = new System.Drawing.Size(241, 157);
+            // 
+            // 打开属性表ToolStripMenuItem
+            // 
+            this.打开属性表ToolStripMenuItem.Name = "打开属性表ToolStripMenuItem";
+            this.打开属性表ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.打开属性表ToolStripMenuItem.Text = "打开属性表";
+            this.打开属性表ToolStripMenuItem.Click += new System.EventHandler(this.打开属性表ToolStripMenuItem_Click);
+            // 
+            // 缩放至图层ToolStripMenuItem
+            // 
+            this.缩放至图层ToolStripMenuItem.Name = "缩放至图层ToolStripMenuItem";
+            this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.缩放至图层ToolStripMenuItem.Text = "缩放至图层";
+            this.缩放至图层ToolStripMenuItem.Click += new System.EventHandler(this.缩放至图层ToolStripMenuItem_Click);
+            // 
+            // 注记ToolStripMenuItem
+            // 
+            this.注记ToolStripMenuItem.Name = "注记ToolStripMenuItem";
+            this.注记ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.注记ToolStripMenuItem.Text = "注记";
+            this.注记ToolStripMenuItem.Click += new System.EventHandler(this.注记ToolStripMenuItem_Click);
+            // 
+            // 移除图层ToolStripMenuItem
+            // 
+            this.移除图层ToolStripMenuItem.Name = "移除图层ToolStripMenuItem";
+            this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.移除图层ToolStripMenuItem.Text = "移除图层";
+            this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
+            // 
             // FormMap
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 18F);
@@ -232,6 +278,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
+            this.contextMenuLayer.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -253,6 +300,11 @@
         private System.Windows.Forms.Button button_FullExtent;
         private System.Windows.Forms.ToolStripStatusLabel lblSelectCount;
         private System.Windows.Forms.Button btnSelect;
+        private System.Windows.Forms.ContextMenuStrip contextMenuLayer;
+        private System.Windows.Forms.ToolStripMenuItem 打开属性表ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 缩放至图层ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 注记ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 移除图层ToolStripMenuItem;
     }
 }
 

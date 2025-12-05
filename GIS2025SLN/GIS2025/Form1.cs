@@ -75,10 +75,6 @@ namespace GIS2025
             view.Update(new XExtent(120, 125, 25, 35), mapBox.ClientRectangle);
 
 
-
-
-
-
             List<XVectorLayer> layers = new List<XVectorLayer>();
 
             iconEyeOpen = Properties.Resources.icon_eye_open;
@@ -638,34 +634,121 @@ namespace GIS2025
         Point TreeMouseDownLocation;
         private void treeView1_MouseDown(object sender, MouseEventArgs e)
         {
-            // 【关键修改 1】使用 HitTest 代替 GetNodeAt
-            // HitTest 可以识别点击位置的状态（在文字上、在图标上、还是在右侧空白处）
+            // 使用 HitTest 获取点击位置的节点信息
             TreeViewHitTestInfo info = treeView1.HitTest(e.Location);
-
-            // 如果没点到任何行（比如点到了最下面的空白），直接返回
             if (info.Node == null) return;
 
             TreeNode node = info.Node;
-            TreeMouseDownLocation = e.Location; // 记录按下的位置
 
-            // 计算点击位置相对于节点左边缘的距离
-            int diff = e.X - node.Bounds.X;
-
-            // --- 眼睛图标逻辑保持不变 ---
-            // 只有点击在前 24 像素内，才算点中眼睛
-            if (diff >= 0 && diff <= 24)
+            // === 现有的左键逻辑 (保持不变) ===
+            if (e.Button == MouseButtons.Left)
             {
-                node.Checked = !node.Checked;
-                treeView1.Invalidate();
-                UpdateMap();
-                // 如果点的是眼睛，就不进行后续的选中或准备拖动了
-                return;
+                TreeMouseDownLocation = e.Location;
+                int diff = e.X - node.Bounds.X;
+
+                // 眼睛开关逻辑
+                if (diff >= 0 && diff <= 24)
+                {
+                    node.Checked = !node.Checked;
+                    treeView1.Invalidate();
+                    UpdateMap();
+                    return;
+                }
+
+                treeView1.SelectedNode = node;
             }
 
-            // --- 【关键修改 2】选中逻辑 ---
-            // 只要不是点眼睛，无论点文字还是右边大片的空白，都算选中该行
-            treeView1.SelectedNode = node;
+            // === 【新增】右键逻辑 ===
+            else if (e.Button == MouseButtons.Right)
+            {
+                // 1. 强制选中当前右键点击的节点 (符合 Windows 操作习惯)
+                treeView1.SelectedNode = node;
+
+                // 2. 判断该节点是不是矢量图层 (XVectorLayer)
+                // 只有矢量图层才有属性表，底图(XTileLayer)没有
+                if (node.Tag is XVectorLayer)
+                {
+                    // 3. 在鼠标位置显示右键菜单
+                    contextMenuLayer.Show(treeView1, e.Location);
+                }
+            }
         }
+
+        private void 打开属性表ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // 获取当前选中的节点
+            TreeNode node = treeView1.SelectedNode;
+
+            // 再次确认它是不是矢量图层
+            if (node != null && node.Tag is XVectorLayer layer)
+            {
+                // 创建并显示属性表窗体 [cite: 822]
+                FormAttribute form = new FormAttribute(layer);
+                form.Show(); // 使用 Show() 可以同时看地图和表，ShowDialog() 则必须关掉表才能动地图
+            }
+
+        }
+
+        private void 缩放至图层ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TreeNode node = treeView1.SelectedNode;
+            if (node != null && node.Tag is XVectorLayer layer)
+            {
+                // 判空：万一是个空图层（没有要素），Extent 可能是 null
+                if (layer.Extent == null)
+                {
+                    MessageBox.Show("该图层为空，无法缩放。");
+                    return;
+                }
+
+                // 核心逻辑：更新视图范围
+                view.Update(layer.Extent, mapBox.ClientRectangle);
+
+                // 刷新地图
+                UpdateMap();
+
+            }
+        }
+        private void 移除图层ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TreeNode node = treeView1.SelectedNode;
+            if (node == null) return;
+
+            // 1. 弹出确认框 (用户体验优化)
+            if (MessageBox.Show($"确定要移除图层 \"{node.Text}\" 吗？", "移除确认",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            {
+                // 2. 从 TreeView 中移除节点
+                // 因为我们的绘制逻辑(UpdateMap)是遍历 TreeView.Nodes 的，
+                // 所以只要从树上删了，地图上也就自动没了。
+                treeView1.Nodes.Remove(node);
+
+                // 3. 刷新地图
+                UpdateMap();
+
+                // 4. 更新状态栏显示的选中数量 (因为移除了可能包含选中要素的图层)
+                UpdateSelectionStatus();
+            }
+
+        }
+
+        private void 注记ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TreeNode node = treeView1.SelectedNode;
+            if (node != null && node.Tag is XVectorLayer layer)
+            {
+                // 1. 切换状态 (True 变 False，False 变 True)
+                layer.LabelOrNot = !layer.LabelOrNot;
+
+                // 2. (可选) 如果你想更智能一点，可以默认让它显示第1列或者第2列的属性
+                // layer.LabelIndex = 1; // 默认显示第0列，通常是ID，可能不好看
+
+                // 3. 刷新地图
+                UpdateMap();
+            }
+
+        }
+
         private void treeView1_MouseMove(object sender, MouseEventArgs e)
         {
             // 1. 必须是左键按住的状态
