@@ -729,7 +729,6 @@ namespace GIS2025
                 // 4. 更新状态栏显示的选中数量 (因为移除了可能包含选中要素的图层)
                 UpdateSelectionStatus();
             }
-
         }
 
         private void 注记ToolStripMenuItem_Click(object sender, EventArgs e)
@@ -745,6 +744,21 @@ namespace GIS2025
 
                 // 3. 刷新地图
                 UpdateMap();
+            }
+
+        }
+
+        private void 注记属性ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TreeNode node = treeView1.SelectedNode;
+            if (node != null && node.Tag is XVectorLayer layer)
+            {
+                FormLabelProperty form = new FormLabelProperty(layer);
+                if (form.ShowDialog() == DialogResult.OK)
+                {
+                    // 如果用户点击了确定，刷新地图
+                    UpdateMap();
+                }
             }
 
         }

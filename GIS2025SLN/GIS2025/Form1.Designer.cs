@@ -47,6 +47,7 @@
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
@@ -225,35 +226,43 @@
             this.打开属性表ToolStripMenuItem,
             this.缩放至图层ToolStripMenuItem,
             this.注记ToolStripMenuItem,
+            this.注记属性ToolStripMenuItem,
             this.移除图层ToolStripMenuItem});
             this.contextMenuLayer.Name = "contextMenuLayer";
-            this.contextMenuLayer.Size = new System.Drawing.Size(241, 157);
+            this.contextMenuLayer.Size = new System.Drawing.Size(241, 187);
             // 
             // 打开属性表ToolStripMenuItem
             // 
             this.打开属性表ToolStripMenuItem.Name = "打开属性表ToolStripMenuItem";
-            this.打开属性表ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.打开属性表ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.打开属性表ToolStripMenuItem.Text = "打开属性表";
             this.打开属性表ToolStripMenuItem.Click += new System.EventHandler(this.打开属性表ToolStripMenuItem_Click);
             // 
             // 缩放至图层ToolStripMenuItem
             // 
             this.缩放至图层ToolStripMenuItem.Name = "缩放至图层ToolStripMenuItem";
-            this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.缩放至图层ToolStripMenuItem.Text = "缩放至图层";
             this.缩放至图层ToolStripMenuItem.Click += new System.EventHandler(this.缩放至图层ToolStripMenuItem_Click);
             // 
             // 注记ToolStripMenuItem
             // 
             this.注记ToolStripMenuItem.Name = "注记ToolStripMenuItem";
-            this.注记ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.注记ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.注记ToolStripMenuItem.Text = "注记";
             this.注记ToolStripMenuItem.Click += new System.EventHandler(this.注记ToolStripMenuItem_Click);
+            // 
+            // 注记属性ToolStripMenuItem
+            // 
+            this.注记属性ToolStripMenuItem.Name = "注记属性ToolStripMenuItem";
+            this.注记属性ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
+            this.注记属性ToolStripMenuItem.Text = "注记属性";
+            this.注记属性ToolStripMenuItem.Click += new System.EventHandler(this.注记属性ToolStripMenuItem_Click);
             // 
             // 移除图层ToolStripMenuItem
             // 
             this.移除图层ToolStripMenuItem.Name = "移除图层ToolStripMenuItem";
-            this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
             // 
@@ -295,16 +304,17 @@
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.Button explore_button;
         private System.Windows.Forms.TreeView treeView1;
-        private System.Windows.Forms.PictureBox mapBox;
         private System.Windows.Forms.Button button_ReadShp;
         private System.Windows.Forms.Button button_FullExtent;
         private System.Windows.Forms.ToolStripStatusLabel lblSelectCount;
         private System.Windows.Forms.Button btnSelect;
         private System.Windows.Forms.ContextMenuStrip contextMenuLayer;
-        private System.Windows.Forms.ToolStripMenuItem 打开属性表ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 缩放至图层ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 注记ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 移除图层ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 打开属性表ToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem 注记属性ToolStripMenuItem;
+        private System.Windows.Forms.PictureBox mapBox;
     }
 }
 

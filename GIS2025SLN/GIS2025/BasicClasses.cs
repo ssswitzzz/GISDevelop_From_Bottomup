@@ -40,6 +40,20 @@ namespace XGIS
             PointRadius = _PointRadius;
         }
     }
+    // 用于记录注记的各种风格参数
+    public class XLabelThematic
+    {
+        public int LabelIndex = 0; // 记录显示第几个字段
+        public Font LabelFont = new Font("宋体", 10); // 字体
+        public SolidBrush LabelBrush = new SolidBrush(Color.Black); // 文字颜色
+
+        public bool UseOutline = true; // 是否使用描边
+        public Color OutlineColor = Color.White; // 描边颜色
+        public float OutlineWidth = 2.0f; // 描边宽度
+
+        // 也可以加一个 OffsetY，防止注记盖住点
+         public int OffsetY = -10; 
+    }
 
     public class XSelect
     {
@@ -620,9 +634,11 @@ namespace XGIS
         public bool LabelOrNot = true;
         public int LabelIndex = 0;
         public bool Visible = true;
+        public XLabelThematic LabelThematic = new XLabelThematic();
 
         public List<XFeature> SelectedFeatures = new List<XFeature>();
         public XThematic UnselectedThematic, SelectedThematic;
+
 
         public XVectorLayer(string _name, SHAPETYPE _shapetype)
         {
@@ -750,7 +766,7 @@ namespace XGIS
                     Features[i].draw(graphics, view, LabelOrNot, LabelIndex,
                         SelectedFeatures.Contains(Features[i]) ?
                             SelectedThematic :
-                            UnselectedThematic);
+                            UnselectedThematic, this.LabelThematic);
             }
         }
 
@@ -1327,14 +1343,45 @@ namespace XGIS
             return values[index];
         }
 
-        public void draw(Graphics _Graphics, XView _view, XVertex _Location, int _Index)
+        // 注意参数变了，现在传入 XLabelThematic
+        public void draw(Graphics g, XView view, XVertex location, XLabelThematic labelThematic)
         {
-            Point point = _view.ToScreenPoint(_Location);
+            // 1. 获取要显示的文字
+            string text = GetValue(labelThematic.LabelIndex).ToString();
+            if (string.IsNullOrEmpty(text)) return;
 
-            _Graphics.DrawString(
-                GetValue(_Index).ToString(), 
-                new Font("宋体", 20),
-                new SolidBrush(Color.Black), point);
+            // 2. 计算屏幕坐标
+            Point screenPoint = view.ToScreenPoint(location);
+
+            // 3. 【核心】使用 GraphicsPath 实现描边
+            // 这种方法比简单的 DrawString 稍微耗一点点性能，但效果最好
+            using (System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                // 将文字添加到路径中
+                // 参数：文本, 字体系列, 字体风格, 字体大小(emSize), 位置, 格式
+                path.AddString(
+                    text,
+                    labelThematic.LabelFont.FontFamily,
+                    (int)labelThematic.LabelFont.Style,
+                    // 注意：AddString 的大小单位通常是像素，需要转换一下，或者直接试一个倍数
+                    g.DpiY * labelThematic.LabelFont.SizeInPoints / 72,
+                    screenPoint,
+                    StringFormat.GenericDefault);
+
+                // A. 如果需要描边，先画粗的轮廓
+                if (labelThematic.UseOutline)
+                {
+                    using (Pen outlinePen = new Pen(labelThematic.OutlineColor, labelThematic.OutlineWidth))
+                    {
+                        // 开启圆角连接，防止笔画尖角刺出来
+                        outlinePen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
+                        g.DrawPath(outlinePen, path);
+                    }
+                }
+
+                // B. 最后填充文字本身的颜色
+                g.FillPath(labelThematic.LabelBrush, path);
+            }
         }
     }
 
@@ -1350,12 +1397,12 @@ namespace XGIS
         }
 
         public void draw(Graphics graphics, XView view, 
-            bool DrawAttributeOrNot, int attributeIndex, XThematic thematic)
+            bool DrawAttributeOrNot, int attributeIndex, XThematic thematic, XLabelThematic labelThematic)
         {
             spatial.draw(graphics, view, thematic);
             if (DrawAttributeOrNot)
             {
-                attribute.draw(graphics, view, spatial.centroid, attributeIndex);
+                attribute.draw(graphics, view, spatial.centroid, labelThematic);
             }
         }
 
