@@ -181,4 +181,79 @@ namespace XGIS
             }
         }
     }
+    // 1. 指北针样式枚举
+    public enum NorthArrowStyle
+    {
+        Simple, // 简单箭头
+        Circle, // 带圆圈
+        Star    // 四角星
+    }
+
+    // 2. 指北针元素类
+    public class XNorthArrow : XLayoutElement
+    {
+        public NorthArrowStyle Style = NorthArrowStyle.Simple;
+
+        public XNorthArrow(RectangleF bounds, NorthArrowStyle style)
+        {
+            this.Bounds = bounds;
+            this.Style = style;
+            this.Name = "指北针";
+        }
+
+        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            // 1. 计算屏幕位置
+            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+
+            // 2. 保存状态
+            var state = g.Save();
+
+            // 3. 坐标系变换：移动到中心 -> 缩放 -> 绘图
+            float centerX = screenRect.X + screenRect.Width / 2;
+            float centerY = screenRect.Y + screenRect.Height / 2;
+            g.TranslateTransform(centerX, centerY);
+
+            // 假设标准绘图尺寸是 100x100，计算缩放比例
+            float size = Math.Min(screenRect.Width, screenRect.Height);
+            float scale = size / 100f;
+            g.ScaleTransform(scale, scale);
+
+            // 4. 根据样式绘图 (坐标系已经是中心为0,0，范围约 -50 到 50)
+            using (Pen p = new Pen(Color.Black, 2))
+            using (SolidBrush b = new SolidBrush(Color.Black))
+            {
+                switch (Style)
+                {
+                    case NorthArrowStyle.Simple:
+                        g.DrawLine(p, 0, 40, 0, -40); // 竖线
+                        g.DrawLine(p, 0, -40, -15, -10); // 左翼
+                        g.DrawLine(p, 0, -40, 15, -10);  // 右翼
+                        g.DrawString("N", new Font("Arial", 20, FontStyle.Bold), b, -12, -75);
+                        break;
+
+                    case NorthArrowStyle.Circle:
+                        g.DrawEllipse(p, -45, -45, 90, 90);
+                        PointF[] pts = { new PointF(0, -40), new PointF(15, 10), new PointF(0, 0), new PointF(-15, 10) };
+                        g.FillPolygon(b, pts);
+                        g.DrawString("N", new Font("Times New Roman", 16, FontStyle.Bold), b, -10, -70);
+                        break;
+
+                    case NorthArrowStyle.Star:
+                        PointF[] star = { new PointF(0,-50), new PointF(10,-10), new PointF(50,0), new PointF(10,10),
+                                          new PointF(0,50), new PointF(-10,10), new PointF(-50,0), new PointF(-10,-10)};
+                        g.FillPolygon(b, star);
+                        g.DrawPolygon(Pens.Black, star); // 描边
+                        g.DrawString("N", new Font("Arial", 14, FontStyle.Bold), b, -10, -75);
+                        break;
+                }
+            }
+
+            // 5. 恢复状态
+            g.Restore(state);
+
+            // 6. 画选中框
+            DrawSelectionBox(g, screenRect);
+        }
+    }
 }

@@ -50,7 +50,12 @@
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnAddNorthArrow = new System.Windows.Forms.Button();
             this.btnAddMapFrame = new System.Windows.Forms.Button();
+            this.cmsNorthArrow = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.simpleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.circleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.starToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -62,6 +67,7 @@
             this.splitContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.contextMenuLayer.SuspendLayout();
+            this.cmsNorthArrow.SuspendLayout();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -169,6 +175,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddNorthArrow);
             this.tabPage2.Controls.Add(this.btnAddMapFrame);
             this.tabPage2.Location = new System.Drawing.Point(4, 38);
             this.tabPage2.Name = "tabPage2";
@@ -279,6 +286,18 @@
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
             // 
+            // btnAddNorthArrow
+            // 
+            this.btnAddNorthArrow.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddNorthArrow.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddNorthArrow.Location = new System.Drawing.Point(211, 3);
+            this.btnAddNorthArrow.Name = "btnAddNorthArrow";
+            this.btnAddNorthArrow.Size = new System.Drawing.Size(208, 72);
+            this.btnAddNorthArrow.TabIndex = 2;
+            this.btnAddNorthArrow.Text = "添加指北针";
+            this.btnAddNorthArrow.UseVisualStyleBackColor = true;
+            this.btnAddNorthArrow.Click += new System.EventHandler(this.btnAddNorthArrow_Click);
+            // 
             // btnAddMapFrame
             // 
             this.btnAddMapFrame.Dock = System.Windows.Forms.DockStyle.Left;
@@ -290,6 +309,37 @@
             this.btnAddMapFrame.Text = "添加Map Frame";
             this.btnAddMapFrame.UseVisualStyleBackColor = true;
             this.btnAddMapFrame.Click += new System.EventHandler(this.btnAddMapFrame_Click);
+            // 
+            // cmsNorthArrow
+            // 
+            this.cmsNorthArrow.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.cmsNorthArrow.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.simpleToolStripMenuItem,
+            this.circleToolStripMenuItem,
+            this.starToolStripMenuItem});
+            this.cmsNorthArrow.Name = "cmsNorthArrow";
+            this.cmsNorthArrow.Size = new System.Drawing.Size(140, 94);
+            // 
+            // simpleToolStripMenuItem
+            // 
+            this.simpleToolStripMenuItem.Name = "simpleToolStripMenuItem";
+            this.simpleToolStripMenuItem.Size = new System.Drawing.Size(139, 30);
+            this.simpleToolStripMenuItem.Text = "Simple";
+            this.simpleToolStripMenuItem.Click += new System.EventHandler(this.toolStripMenuItemSimple_Click);
+            // 
+            // circleToolStripMenuItem
+            // 
+            this.circleToolStripMenuItem.Name = "circleToolStripMenuItem";
+            this.circleToolStripMenuItem.Size = new System.Drawing.Size(139, 30);
+            this.circleToolStripMenuItem.Text = "Circle";
+            this.circleToolStripMenuItem.Click += new System.EventHandler(this.toolStripMenuItemCircle_Click);
+            // 
+            // starToolStripMenuItem
+            // 
+            this.starToolStripMenuItem.Name = "starToolStripMenuItem";
+            this.starToolStripMenuItem.Size = new System.Drawing.Size(139, 30);
+            this.starToolStripMenuItem.Text = "Star";
+            this.starToolStripMenuItem.Click += new System.EventHandler(this.toolStripMenuItemStar_Click);
             // 
             // FormMap
             // 
@@ -314,6 +364,7 @@
             this.splitContainer1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.contextMenuLayer.ResumeLayout(false);
+            this.cmsNorthArrow.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -342,7 +393,12 @@
         private System.Windows.Forms.ToolStripMenuItem 注记属性ToolStripMenuItem;
         private System.Windows.Forms.PictureBox mapBox;
         private LayoutControl myLayoutControl;
+        private System.Windows.Forms.Button btnAddNorthArrow;
         private System.Windows.Forms.Button btnAddMapFrame;
+        private System.Windows.Forms.ContextMenuStrip cmsNorthArrow;
+        private System.Windows.Forms.ToolStripMenuItem simpleToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem circleToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem starToolStripMenuItem;
     }
 }
 

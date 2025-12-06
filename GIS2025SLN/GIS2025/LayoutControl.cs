@@ -17,7 +17,8 @@ namespace GIS2025
         Select,         // 选择元素 (左键)
         CreateMapFrame, // 准备创建地图框
         ResizeElement,  // 正在缩放元素
-        PanMapContent   // 【激活状态】正在漫游地图框里面的内容
+        PanMapContent,  // 【激活状态】正在漫游地图框里面的内容
+        CreateNorthArrow,
     }
 
     public enum ResizeHandle
@@ -197,7 +198,8 @@ namespace GIS2025
             }
 
             // D. 画创建过程中的橡皮筋框 (拖拽时的临时框)
-            if (CurrentTool == LayoutTool.CreateMapFrame && mouseDownLoc != Point.Empty && Control.MouseButtons == MouseButtons.Left)
+            if ((CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow)
+                && mouseDownLoc != Point.Empty && Control.MouseButtons == MouseButtons.Left)
             {
                 Point currentMouse = layoutBox.PointToClient(Cursor.Position);
                 Rectangle rect = GetScreenRectFromPoints(mouseDownLoc, currentMouse);
@@ -234,10 +236,12 @@ namespace GIS2025
             }
 
             // --- 情况 2: 创建模式 ---
-            if (CurrentTool == LayoutTool.CreateMapFrame)
+            if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow)
             {
+                // 如果是创建工具，不要执行下面的“选中”或“平移”逻辑，直接返回
                 return;
             }
+
 
             // --- 情况 3: 右键菜单 ---
             if (e.Button == MouseButtons.Right)
@@ -397,6 +401,43 @@ namespace GIS2025
             else if (activeMapFrame == null)
             {
                 if (CurrentTool == LayoutTool.PanPaper) CurrentTool = LayoutTool.Select;
+            }
+            // === 新增：处理创建指北针 ===
+            if (CurrentTool == LayoutTool.CreateNorthArrow && e.Button == MouseButtons.Left)
+            {
+                float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) dpi = g.DpiX;
+
+                // 计算鼠标拖拽的屏幕矩形
+                Rectangle screenRect = GetScreenRectFromPoints(mouseDownLoc, e.Location);
+                RectangleF mmRect;
+
+                // 判断是“点击”还是“框选”
+                // 如果宽高小于 5 像素，视为点击，生成默认大小 (例如 20mm x 20mm)
+                if (screenRect.Width < 5 || screenRect.Height < 5)
+                {
+                    // 将点击位置(screenRect.X, Y) 转换为毫米，作为左上角
+                    RectangleF clickPt = PixelToMMRect(new Rectangle(e.X, e.Y, 0, 0), dpi);
+                    mmRect = new RectangleF(clickPt.X, clickPt.Y, 20, 20); // 默认 20mm 大小
+                }
+                else
+                {
+                    // 框选大小
+                    mmRect = PixelToMMRect(screenRect, dpi);
+                }
+
+                // 创建对象
+                XNorthArrow arrow = new XNorthArrow(mmRect, _pendingNorthArrowStyle);
+                page.Elements.Add(arrow);
+
+                // 选中新对象
+                selectedElement = arrow;
+                selectedElement.IsSelected = true;
+
+                // 恢复工具状态
+                CurrentTool = LayoutTool.Select;
+                layoutBox.Cursor = Cursors.Default;
+                layoutBox.Invalidate();
+                return; // 结束
             }
             // 【新增】在方法的最后，无条件重置交互状态
             currentHandle = ResizeHandle.None; // 停止缩放
@@ -574,6 +615,11 @@ namespace GIS2025
                 if (handle == ResizeHandle.Right) { layoutBox.Cursor = Cursors.SizeWE; return; }
                 if (handle == ResizeHandle.Bottom) { layoutBox.Cursor = Cursors.SizeNS; return; }
             }
+            if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow)
+            {
+                layoutBox.Cursor = Cursors.Cross;
+                return;
+            }
             layoutBox.Cursor = Cursors.Default;
         }
 
@@ -582,6 +628,31 @@ namespace GIS2025
             return new Rectangle(
                 Math.Min(p1.X, p2.X), Math.Min(p1.Y, p2.Y),
                 Math.Abs(p1.X - p2.X), Math.Abs(p1.Y - p2.Y));
+        }
+        // 临时存储要创建的样式
+        private NorthArrowStyle _pendingNorthArrowStyle;
+
+        // 【外部调用】开始创建指北针
+        public void StartCreateNorthArrow(NorthArrowStyle style)
+        {
+            CurrentTool = LayoutTool.CreateNorthArrow;
+            _pendingNorthArrowStyle = style;
+            layoutBox.Cursor = Cursors.Cross;
+            // 取消当前选中
+            selectedElement = null;
+            activeMapFrame = null;
+            layoutBox.Invalidate();
+        }
+
+        // 【辅助函数】将屏幕像素反算回纸张毫米坐标
+        private RectangleF PixelToMMRect(Rectangle screenRect, float dpi)
+        {
+            float pixelPerMM = dpi / 25.4f;
+            float x = (screenRect.X - offsetX) / zoomScale / pixelPerMM;
+            float y = (screenRect.Y - offsetY) / zoomScale / pixelPerMM;
+            float w = screenRect.Width / zoomScale / pixelPerMM;
+            float h = screenRect.Height / zoomScale / pixelPerMM;
+            return new RectangleF(x, y, w, h);
         }
     }
 }

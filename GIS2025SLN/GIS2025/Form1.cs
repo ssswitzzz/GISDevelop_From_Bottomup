@@ -858,6 +858,36 @@ namespace GIS2025
             // 调用 LayoutControl 里的方法，进入创建模式
             myLayoutControl.StartCreateMapFrame();
         }
+        // 按钮点击：弹出下拉菜单
+        private void btnAddNorthArrow_Click(object sender, EventArgs e)
+        {
+            // 在按钮下方显示菜单
+            // 如果你的按钮是在 ToolStrip 上，用法略有不同，这里假设是普通 Button
+            cmsNorthArrow.Show(btnAddNorthArrow, 0, btnAddNorthArrow.Height);
+        }
+
+        // 菜单项 1：简单样式
+        private void toolStripMenuItemSimple_Click(object sender, EventArgs e)
+        {
+            // 切换到 Layout 选项卡 (防止用户在地图页面点)
+            if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2;
+
+            myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Simple);
+        }
+
+        // 菜单项 2：圆形样式
+        private void toolStripMenuItemCircle_Click(object sender, EventArgs e)
+        {
+            if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2;
+            myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Circle);
+        }
+
+        // 菜单项 3：星形样式
+        private void toolStripMenuItemStar_Click(object sender, EventArgs e)
+        {
+            if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2;
+            myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Star);
+        }
     }
 
 }
