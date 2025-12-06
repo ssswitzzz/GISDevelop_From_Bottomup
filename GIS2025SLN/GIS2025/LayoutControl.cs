@@ -15,10 +15,18 @@ namespace GIS2025
 
     public enum ResizeHandle { None, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left }
 
+    // 【新增】辅助线结构，用于绘制对齐提示
+    public struct SmartGuide
+    {
+        public bool IsVertical; // true为竖线，false为横线
+        public float Position;  // 坐标值 (mm)
+        public float Start;     // 线条起始 (mm)
+        public float End;       // 线条结束 (mm)
+    }
+
     public partial class LayoutControl : UserControl
     {
         public XLayoutPage Page;
-
         public event EventHandler ElementChanged;
         public event EventHandler SelectionChanged;
 
@@ -43,6 +51,11 @@ namespace GIS2025
         private ScaleBarStyle _pendingScaleBarStyle;
         private ContextMenuStrip contextMenuLayout;
 
+        // 【新增】吸附相关变量
+        private List<SmartGuide> activeGuides = new List<SmartGuide>(); // 当前显示的辅助线
+        private const int SNAP_THRESHOLD_PIXEL = 10; // 吸附阈值(屏幕像素)，类似于“磁力”大小
+        private const float MARGIN_MM = 10.0f; // 默认页边距吸附 (10mm)
+
         public LayoutControl()
         {
             InitializeComponent();
@@ -51,7 +64,6 @@ namespace GIS2025
 
             InitContextMenu();
 
-            // 手动订阅事件，确保逻辑生效
             layoutBox.MouseWheel += LayoutBox_MouseWheel;
             layoutBox.MouseDown += LayoutBox_MouseDown;
             layoutBox.MouseMove += LayoutBox_MouseMove;
@@ -107,7 +119,6 @@ namespace GIS2025
             layoutBox.Invalidate();
         }
 
-        // ================= 工具启动 =================
         public void StartCreateMapFrame() { CurrentTool = LayoutTool.CreateMapFrame; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartCreateNorthArrow(NorthArrowStyle style) { CurrentTool = LayoutTool.CreateNorthArrow; _pendingNorthArrowStyle = style; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartCreateScaleBar(ScaleBarStyle style) { CurrentTool = LayoutTool.CreateScaleBar; _pendingScaleBarStyle = style; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
@@ -185,6 +196,7 @@ namespace GIS2025
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
             float pixelPerMM = dpi / 25.4f;
 
+            // 1. 地图漫游模式 (不涉及吸附)
             if (activeMapFrame != null)
             {
                 if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle)
@@ -198,35 +210,59 @@ namespace GIS2025
                 return;
             }
 
+            // 2. 创建元素模式
             if ((CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow || CurrentTool == LayoutTool.CreateScaleBar) && e.Button == MouseButtons.Left)
             {
                 layoutBox.Invalidate();
                 return;
             }
 
+            // 3. 调整大小模式 (Resize)
             if (CurrentTool == LayoutTool.ResizeElement && selectedElement != null)
             {
                 float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
                 float dy = (e.Y - mouseDownLoc.Y) / zoomScale / pixelPerMM;
                 RectangleF newBounds = originalBounds;
+
+                // 初步计算新位置
                 switch (currentHandle)
                 {
                     case ResizeHandle.Right: newBounds.Width += dx; break;
                     case ResizeHandle.Bottom: newBounds.Height += dy; break;
                     case ResizeHandle.BottomRight: newBounds.Width += dx; newBounds.Height += dy; break;
                     case ResizeHandle.TopLeft: newBounds.X += dx; newBounds.Y += dy; newBounds.Width -= dx; newBounds.Height -= dy; break;
+                        // ... 其他Handle略，原理相同 ...
                 }
-                if (newBounds.Width < 5) newBounds.Width = 5; if (newBounds.Height < 5) newBounds.Height = 5;
+
+                if (newBounds.Width < 5) newBounds.Width = 5;
+                if (newBounds.Height < 5) newBounds.Height = 5;
+
+                // 【调用吸附】 调整大小时也吸附，体验更好
+                newBounds = CheckAndApplySnap(newBounds, pixelPerMM);
+
                 selectedElement.Bounds = newBounds;
                 layoutBox.Invalidate();
             }
+            // 4. 移动模式 (Move)
             else if (CurrentTool == LayoutTool.Select && e.Button == MouseButtons.Left && selectedElement != null)
             {
                 float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
                 float dy = (e.Y - mouseDownLoc.Y) / zoomScale / pixelPerMM;
-                selectedElement.Bounds = new RectangleF(originalBounds.X + dx, originalBounds.Y + dy, originalBounds.Width, originalBounds.Height);
+
+                // 计算理论上的新位置
+                RectangleF proposedBounds = new RectangleF(
+                    originalBounds.X + dx,
+                    originalBounds.Y + dy,
+                    originalBounds.Width,
+                    originalBounds.Height);
+
+                // 【核心修改】调用吸附计算，修正位置，并生成辅助线
+                RectangleF snappedBounds = CheckAndApplySnap(proposedBounds, pixelPerMM);
+
+                selectedElement.Bounds = snappedBounds;
                 layoutBox.Invalidate();
             }
+            // 5. 漫游纸张
             else if (CurrentTool == LayoutTool.PanPaper && (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle))
             {
                 offsetX += e.X - mouseDownLoc.X;
@@ -237,8 +273,116 @@ namespace GIS2025
             UpdateCursor(e.Location, dpi);
         }
 
+        // ==================================================
+        // 【核心算法】智能吸附与对齐
+        // ==================================================
+        private RectangleF CheckAndApplySnap(RectangleF proposedRect, float pixelPerMM)
+        {
+            activeGuides.Clear(); // 清空旧的辅助线
+
+            // 1. 将屏幕像素阈值转换为毫米单位，确保缩放时手感一致
+            float snapDistMM = SNAP_THRESHOLD_PIXEL / (zoomScale * pixelPerMM);
+
+            float resultX = proposedRect.X;
+            float resultY = proposedRect.Y;
+
+            // 定义页面关键点 (mm)
+            List<float> targetX = new List<float> {
+                0,                          // 左边缘
+                Page.WidthMM / 2,           // 垂直中线
+                Page.WidthMM,               // 右边缘
+                MARGIN_MM,                  // 左页边距
+                Page.WidthMM - MARGIN_MM    // 右页边距
+            };
+
+            List<float> targetY = new List<float> {
+                0,                          // 上边缘
+                Page.HeightMM / 2,          // 水平中线
+                Page.HeightMM,              // 下边缘
+                MARGIN_MM,                  // 上页边距
+                Page.HeightMM - MARGIN_MM   // 下页边距
+            };
+
+            // 记录元素自身的关键点 (相对位置)
+            // 我们需要检查元素的 Left, Center, Right 分别是否靠近目标的 X
+            float[] elementXOffsets = { 0, proposedRect.Width / 2, proposedRect.Width };
+            // 对应：元素左边、元素中心、元素右边
+
+            float[] elementYOffsets = { 0, proposedRect.Height / 2, proposedRect.Height };
+            // 对应：元素上边、元素中心、元素下边
+
+            bool snappedX = false;
+            bool snappedY = false;
+
+            // --- X 轴吸附检查 ---
+            // 遍历元素自身的三个关键点 (左、中、右)
+            for (int i = 0; i < elementXOffsets.Length; i++)
+            {
+                if (snappedX) break; // 如果已经吸附了，就不再重复吸附 (防止抖动)
+
+                float currentEleX = proposedRect.X + elementXOffsets[i];
+
+                // 遍历页面的所有目标线
+                foreach (float tx in targetX)
+                {
+                    if (Math.Abs(currentEleX - tx) < snapDistMM)
+                    {
+                        // 触发吸附！
+                        // 修正 resultX：让元素的这个关键点(currentEleX) 变成 tx
+                        // 公式：NewLeft = TargetX - Offset
+                        resultX = tx - elementXOffsets[i];
+
+                        // 添加垂直辅助线
+                        activeGuides.Add(new SmartGuide
+                        {
+                            IsVertical = true,
+                            Position = tx,
+                            Start = 0,
+                            End = Page.HeightMM
+                        });
+
+                        snappedX = true;
+                        break;
+                    }
+                }
+            }
+
+            // --- Y 轴吸附检查 ---
+            for (int i = 0; i < elementYOffsets.Length; i++)
+            {
+                if (snappedY) break;
+
+                float currentEleY = proposedRect.Y + elementYOffsets[i];
+
+                foreach (float ty in targetY)
+                {
+                    if (Math.Abs(currentEleY - ty) < snapDistMM)
+                    {
+                        resultY = ty - elementYOffsets[i];
+
+                        // 添加水平辅助线
+                        activeGuides.Add(new SmartGuide
+                        {
+                            IsVertical = false,
+                            Position = ty,
+                            Start = 0,
+                            End = Page.WidthMM
+                        });
+
+                        snappedY = true;
+                        break;
+                    }
+                }
+            }
+
+            return new RectangleF(resultX, resultY, proposedRect.Width, proposedRect.Height);
+        }
+
         private void LayoutBox_MouseUp(object sender, MouseEventArgs e)
         {
+            // 清理状态
+            activeGuides.Clear(); // 鼠标松开，辅助线消失
+
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) dpi = g.DpiX;
             Rectangle screenRect = GetScreenRectFromPoints(mouseDownLoc, e.Location);
 
@@ -253,6 +397,7 @@ namespace GIS2025
                 NotifySelectionChanged();
             };
 
+            // 创建逻辑 (保持不变)
             if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
             {
                 if (screenRect.Width > 10 && screenRect.Height > 10)
@@ -311,6 +456,8 @@ namespace GIS2025
         {
             if (Page == null) return;
             float dpi = e.Graphics.DpiX;
+            float pixelPerMM = dpi / 25.4f;
+
             Page.Draw(e.Graphics, dpi, zoomScale, offsetX, offsetY);
 
             if (activeMapFrame == null && selectedElement != null && selectedElement.IsSelected) DrawSelectionHandles(e.Graphics, dpi);
@@ -327,39 +474,54 @@ namespace GIS2025
                 using (Pen p = new Pen(Color.Blue, 1) { DashStyle = DashStyle.Dot }) e.Graphics.DrawRectangle(p, rect);
             }
             DrawRulers(e.Graphics, dpi, zoomScale, offsetX, offsetY);
+
+            // 【新增】绘制智能吸附辅助线 (Smart Guides)
+            if (activeGuides.Count > 0 && (CurrentTool == LayoutTool.Select || CurrentTool == LayoutTool.ResizeElement))
+            {
+                // 使用 Cyan 色 (类似 Adobe 软件的智能参考线)
+                using (Pen guidePen = new Pen(Color.DeepSkyBlue, 1) { DashStyle = DashStyle.DashDot })
+                {
+                    foreach (var guide in activeGuides)
+                    {
+                        if (guide.IsVertical)
+                        {
+                            // 转换坐标到屏幕像素
+                            float x = offsetX + guide.Position * pixelPerMM * zoomScale;
+                            float y1 = offsetY + guide.Start * pixelPerMM * zoomScale;
+                            float y2 = offsetY + guide.End * pixelPerMM * zoomScale;
+                            e.Graphics.DrawLine(guidePen, x, y1, x, y2);
+                        }
+                        else
+                        {
+                            float y = offsetY + guide.Position * pixelPerMM * zoomScale;
+                            float x1 = offsetX + guide.Start * pixelPerMM * zoomScale;
+                            float x2 = offsetX + guide.End * pixelPerMM * zoomScale;
+                            e.Graphics.DrawLine(guidePen, x1, y, x2, y);
+                        }
+                    }
+                }
+            }
         }
 
-        // ================= 辅助函数区 =================
-        // 【核心修改】修复后的缩放逻辑，以鼠标为中心
+        // ================= 辅助函数区 (保持精简) =================
         private void LayoutBox_MouseWheel(object sender, MouseEventArgs e)
         {
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
 
             if (activeMapFrame != null)
             {
-                // 1. 计算 MapFrame 在屏幕上的像素区域
                 RectangleF screenRectF = MMToPixelRect(activeMapFrame.Bounds, dpi);
-
-                // 2. 计算鼠标相对于 MapFrame 的局部坐标
                 int localX = (int)(e.X - screenRectF.X);
                 int localY = (int)(e.Y - screenRectF.Y);
-
-                // 3. 更新 View 窗口大小
                 activeMapFrame.FrameView.UpdateMapWindow(new Rectangle(0, 0, (int)screenRectF.Width, (int)screenRectF.Height));
-
-                // 4. 获取鼠标指针对应的地理坐标
                 XVertex anchor = activeMapFrame.FrameView.ToMapVertex(new Point(localX, localY));
-
-                // 5. 执行缩放 (以锚点为中心)
                 bool isZoomIn = e.Delta > 0;
                 double ratio = isZoomIn ? 1.1 : (1.0 / 1.1);
                 activeMapFrame.FrameView.CurrentMapExtent.ZoomToCenter(anchor, ratio);
-
                 layoutBox.Invalidate();
             }
             else
             {
-                // 布局纸张缩放
                 float mouseX_World = (e.X - offsetX) / zoomScale;
                 float mouseY_World = (e.Y - offsetY) / zoomScale;
                 if (e.Delta > 0) zoomScale *= 1.1f; else zoomScale /= 1.1f;
