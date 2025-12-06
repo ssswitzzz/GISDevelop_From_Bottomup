@@ -43,17 +43,19 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.myLayoutControl = new GIS2025.LayoutControl();
+            this.btnAddMapFrame = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.flowLayoutPanel1.SuspendLayout();
+            this.tabPage2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -167,6 +169,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddMapFrame);
             this.tabPage2.Location = new System.Drawing.Point(4, 38);
             this.tabPage2.Name = "tabPage2";
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
@@ -221,6 +224,14 @@
             this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
             this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
             // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
+            // 
             // contextMenuLayer
             // 
             this.contextMenuLayer.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -268,13 +279,17 @@
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
             // 
-            // myLayoutControl
+            // btnAddMapFrame
             // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
+            this.btnAddMapFrame.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddMapFrame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddMapFrame.Location = new System.Drawing.Point(3, 3);
+            this.btnAddMapFrame.Name = "btnAddMapFrame";
+            this.btnAddMapFrame.Size = new System.Drawing.Size(208, 72);
+            this.btnAddMapFrame.TabIndex = 1;
+            this.btnAddMapFrame.Text = "添加Map Frame";
+            this.btnAddMapFrame.UseVisualStyleBackColor = true;
+            this.btnAddMapFrame.Click += new System.EventHandler(this.btnAddMapFrame_Click);
             // 
             // FormMap
             // 
@@ -292,6 +307,7 @@
             this.tabControl1.ResumeLayout(false);
             this.tabPage1.ResumeLayout(false);
             this.flowLayoutPanel1.ResumeLayout(false);
+            this.tabPage2.ResumeLayout(false);
             this.splitContainer1.Panel1.ResumeLayout(false);
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
@@ -326,6 +342,7 @@
         private System.Windows.Forms.ToolStripMenuItem 注记属性ToolStripMenuItem;
         private System.Windows.Forms.PictureBox mapBox;
         private LayoutControl myLayoutControl;
+        private System.Windows.Forms.Button btnAddMapFrame;
     }
 }
 

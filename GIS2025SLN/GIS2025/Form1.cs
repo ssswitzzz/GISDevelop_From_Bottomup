@@ -853,6 +853,11 @@ namespace GIS2025
                 }
             }
         }
+        private void btnAddMapFrame_Click(object sender, EventArgs e)
+        {
+            // 调用 LayoutControl 里的方法，进入创建模式
+            myLayoutControl.StartCreateMapFrame();
+        }
     }
 
 }

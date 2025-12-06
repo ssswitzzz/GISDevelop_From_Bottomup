@@ -1,34 +1,70 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using XGIS; // 引用你的核心命名空间
 
 namespace GIS2025
 {
+    // ==========================================
+    // 枚举定义
+    // ==========================================
+    public enum LayoutTool
+    {
+        None,           // 无
+        PanPaper,       // 平移纸张 (中键)
+        Select,         // 选择元素 (左键)
+        CreateMapFrame, // 准备创建地图框
+        ResizeElement,  // 正在缩放元素
+        PanMapContent   // 【激活状态】正在漫游地图框里面的内容
+    }
+
+    public enum ResizeHandle
+    {
+        None, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left
+    }
+
     public partial class LayoutControl : UserControl
     {
-        // 核心数据
+        // ==========================================
+        // 核心数据变量
+        // ==========================================
         private XLayoutPage page;
 
-        // 视图交互参数
+        // 视图变换变量
         private float zoomScale = 1.0f;
-        private float offsetX = 50;
-        private float offsetY = 50;
-        private bool isPanning = false;
-        private Point lastMouseLoc;
-        private XLayoutElement selectedElement = null; // 当前选中的元素
-        private bool isDraggingElement = false;        // 是否正在拖拽元素
-        private PointF lastMouseMapLoc;                // 上一次鼠标在"纸张坐标系"中的位置
+        private float offsetX = 40;
+        private float offsetY = 40;
+
+        // 交互状态变量
+        public LayoutTool CurrentTool = LayoutTool.Select;
+        private XLayoutElement selectedElement = null;
+        private XMapFrame activeMapFrame = null; // 当前被激活的地图框
+
+        // 拖拽/计算临时变量
+        private Point mouseDownLoc;
+        private RectangleF originalBounds;
+        private ResizeHandle currentHandle = ResizeHandle.None;
+
+        // 用于创建新 MapFrame 的缓存数据
+        private List<XVectorLayer> _cacheLayers;
+        private XTileLayer _cacheBaseLayer;
+        private XExtent _cacheExtent;
+
+
+        // UI 组件
+        private ContextMenuStrip contextMenuLayout;
 
         public LayoutControl()
         {
             InitializeComponent();
+            this.DoubleBuffered = true; // 防止闪烁
 
-            // 开启双缓冲，防止闪烁
-            this.DoubleBuffered = true;
+            // 初始化右键菜单
+            InitContextMenu();
 
-            // 绑定 PictureBox 事件
+            // 绑定事件
             layoutBox.MouseWheel += LayoutBox_MouseWheel;
             layoutBox.MouseDown += LayoutBox_MouseDown;
             layoutBox.MouseMove += LayoutBox_MouseMove;
@@ -37,256 +73,515 @@ namespace GIS2025
         }
 
         // ==========================================
-        // 核心方法：刷新布局数据
-        // 当你切到这个 Tab 时，调用这个方法把地图数据传进来
+        // 1. 初始化与数据加载
         // ==========================================
+        private void InitContextMenu()
+        {
+            contextMenuLayout = new ContextMenuStrip();
+            var btnActivate = new ToolStripMenuItem("激活地图框");
+            btnActivate.Click += (s, e) => { ToggleMapActivation(true); };
+
+            var btnCloseActivate = new ToolStripMenuItem("关闭激活");
+            btnCloseActivate.Click += (s, e) => { ToggleMapActivation(false); };
+
+            contextMenuLayout.Items.Add(btnActivate);
+            contextMenuLayout.Items.Add(btnCloseActivate);
+
+            // 动态显示逻辑
+            contextMenuLayout.Opening += (s, e) =>
+            {
+                if (selectedElement is XMapFrame)
+                {
+                    bool isActive = (activeMapFrame == selectedElement);
+                    btnActivate.Visible = !isActive;
+                    btnCloseActivate.Visible = isActive;
+                }
+                else
+                {
+                    e.Cancel = true; // 不是地图框就不显示菜单
+                }
+            };
+        }
+
         public void UpdateLayout(List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
-            // 初始化一张 A4 纸
-            page = new XLayoutPage();
+            // 缓存数据，以便后续“拖拽创建”新地图框时使用
+            _cacheLayers = layers;
+            _cacheBaseLayer = baseLayer;
+            _cacheExtent = currentExtent;
 
-            // 1. 创建地图框 (XMapFrame)
-            // 把它放在纸张中间，留一点边距
-            XMapFrame mapFrame = new XMapFrame(
-                new RectangleF(20, 20, 257, 170), // A4(297x210) 减去边距
-                layers,
-                baseLayer,
-                currentExtent
-            );
-            page.Elements.Add(mapFrame);
+            // 如果是第一次加载，初始化纸张；否则保留当前纸张内容，只更新数据引用
+            if (page == null)
+            {
+                page = new XLayoutPage(); // A4 纸
+            }
+            else
+            {
+                // 【核心修复】如果 Page 已经存在，遍历里面的 MapFrame，把数据更新一下
+                foreach (var ele in page.Elements)
+                {
+                    if (ele is XMapFrame mapFrame)
+                    {
+                        // 更新图层列表 (这样新加的 Shapefile 就能看到了)
+                        mapFrame.Layers = layers;
+                        mapFrame.BaseLayer = baseLayer;
 
-            // 强制重绘
+                        // 可选：是否要同步地图的视野范围？
+                        // 通常专业软件不自动同步，除非用户要求。
+                        // 如果你想每次切换都强制同步，取消下面注释：
+                        // mapFrame.FrameView.Update(currentExtent, new Rectangle(0,0,1,1));
+                    }
+                }
+            }
+
+                // 强制重绘
+                layoutBox.Invalidate();
+        }
+
+        // 供外部按钮调用：开始创建地图框
+        public void StartCreateMapFrame()
+        {
+            CurrentTool = LayoutTool.CreateMapFrame;
+            layoutBox.Cursor = Cursors.Cross; // 鼠标变十字
+            // 取消当前选中
+            selectedElement = null;
+            activeMapFrame = null;
+            layoutBox.Invalidate();
+        }
+
+        // 切换激活状态
+        private void ToggleMapActivation(bool activate)
+        {
+            if (activate && selectedElement is XMapFrame mapFrame)
+            {
+                activeMapFrame = mapFrame;
+                CurrentTool = LayoutTool.PanMapContent;
+                layoutBox.Cursor = Cursors.NoMove2D; // 漫游图标
+            }
+            else
+            {
+                activeMapFrame = null;
+                CurrentTool = LayoutTool.Select;
+                layoutBox.Cursor = Cursors.Default;
+            }
             layoutBox.Invalidate();
         }
 
         // ==========================================
-        // 绘图逻辑
+        // 2. 绘图逻辑 (Paint)
         // ==========================================
         private void LayoutBox_Paint(object sender, PaintEventArgs e)
         {
-            if (page == null) return; // 如果还没数据就不画
+            if (page == null) return;
 
-            // 获取屏幕 DPI，确保纸张物理尺寸在不同屏幕上看起来一致
+            // 获取当前 DPI
             float dpi = e.Graphics.DpiX;
+
+            // A. 画纸张和所有元素
             page.Draw(e.Graphics, dpi, zoomScale, offsetX, offsetY);
-            // 2. 画标尺 (覆盖在最上层)
-            // 这里的 offsetX 和 offsetY 就是纸张左上角的屏幕坐标，标尺的0点将对齐这里
+
+            // B. 画选中框和控制点 (前提：没有激活任何地图框)
+            if (activeMapFrame == null && selectedElement != null && selectedElement.IsSelected)
+            {
+                DrawSelectionHandles(e.Graphics, dpi);
+            }
+
+            // C. 画激活边框 (红色虚线框)
+            if (activeMapFrame != null)
+            {
+                RectangleF screenRect = MMToPixelRect(activeMapFrame.Bounds, dpi);
+                using (Pen p = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash })
+                {
+                    e.Graphics.DrawRectangle(p, screenRect.X - 2, screenRect.Y - 2, screenRect.Width + 4, screenRect.Height + 4);
+                }
+            }
+
+            // D. 画创建过程中的橡皮筋框 (拖拽时的临时框)
+            if (CurrentTool == LayoutTool.CreateMapFrame && mouseDownLoc != Point.Empty && Control.MouseButtons == MouseButtons.Left)
+            {
+                Point currentMouse = layoutBox.PointToClient(Cursor.Position);
+                Rectangle rect = GetScreenRectFromPoints(mouseDownLoc, currentMouse);
+                using (Pen p = new Pen(Color.Blue, 1) { DashStyle = DashStyle.Dot })
+                {
+                    e.Graphics.DrawRectangle(p, rect);
+                }
+            }
+
+            // E. 画标尺
             DrawRulers(e.Graphics, dpi, zoomScale, offsetX, offsetY);
         }
 
         // ==========================================
-        // 交互逻辑 (平移和缩放纸张)
+        // 3. 鼠标交互逻辑 (Mouse Events)
         // ==========================================
-        private void LayoutBox_MouseWheel(object sender, MouseEventArgs e)
-        {
-            // 滚轮缩放纸张视图
-            if (e.Delta > 0) zoomScale *= 1.1f;
-            else zoomScale /= 1.1f;
-            layoutBox.Invalidate();
-        }
-
         private void LayoutBox_MouseDown(object sender, MouseEventArgs e)
         {
+            mouseDownLoc = e.Location;
+
+            // 【修复 1】手动创建 Graphics 获取 DPI，因为 MouseEventArgs 没有 Graphics
+            float dpi = 96;
+            using (Graphics g = layoutBox.CreateGraphics())
+            {
+                dpi = g.DpiX;
+            }
+            float pixelPerMM = dpi / 25.4f;
+
+            // --- 情况 1: 处于激活模式 ---
+            if (activeMapFrame != null)
+            {
+                if (e.Button == MouseButtons.Right) contextMenuLayout.Show(layoutBox, e.Location);
+                return;
+            }
+
+            // --- 情况 2: 创建模式 ---
+            if (CurrentTool == LayoutTool.CreateMapFrame)
+            {
+                return;
+            }
+
+            // --- 情况 3: 右键菜单 ---
+            if (e.Button == MouseButtons.Right)
+            {
+                if (CheckHitElement(e.Location, pixelPerMM))
+                {
+                    contextMenuLayout.Show(layoutBox, e.Location);
+                }
+                return;
+            }
+
+            // --- 情况 4: 左键操作 ---
             if (e.Button == MouseButtons.Left)
             {
-                // 【修正】e.Graphics 是不存在的，我们需要从控件创建 Graphics
-                float dpi = 96;
-                using (Graphics g = layoutBox.CreateGraphics())
+                if (selectedElement != null && selectedElement.IsSelected)
                 {
-                    dpi = g.DpiX;
-                }
-                float pixelPerMM = dpi / 25.4f;
-
-                // 倒序遍历（优先选中最上层的）
-                bool hitSomething = false;
-                for (int i = page.Elements.Count - 1; i >= 0; i--)
-                {
-                    var ele = page.Elements[i];
-
-                    // 计算该元素当前的屏幕矩形
-                    float ex = ele.Bounds.X * pixelPerMM * zoomScale + offsetX;
-                    float ey = ele.Bounds.Y * pixelPerMM * zoomScale + offsetY;
-                    float ew = ele.Bounds.Width * pixelPerMM * zoomScale;
-                    float eh = ele.Bounds.Height * pixelPerMM * zoomScale;
-                    RectangleF screenRect = new RectangleF(ex, ey, ew, eh);
-
-                    if (screenRect.Contains(e.Location))
+                    currentHandle = CheckHitHandle(e.Location, MMToPixelRect(selectedElement.Bounds, dpi));
+                    if (currentHandle != ResizeHandle.None)
                     {
-                        // 选中了它！
-                        selectedElement = ele;
-                        selectedElement.IsSelected = true;
-                        isDraggingElement = true;
-                        hitSomething = true;
-
-                        // 把其他元素的选中状态取消
-                        foreach (var other in page.Elements) if (other != ele) other.IsSelected = false;
-
-                        break; // 找到了就停止
+                        CurrentTool = LayoutTool.ResizeElement;
+                        originalBounds = selectedElement.Bounds;
+                        return;
                     }
                 }
 
-                // 如果没点中任何元素，那就是点中了纸张，准备平移纸张
-                if (!hitSomething)
+                if (CheckHitElement(e.Location, pixelPerMM))
                 {
-                    selectedElement = null;
-                    foreach (var other in page.Elements) other.IsSelected = false; // 取消所有选中
-                    isPanning = true;
+                    CurrentTool = LayoutTool.Select;
+                    originalBounds = selectedElement.Bounds;
                 }
-
-                lastMouseLoc = e.Location;
-                layoutBox.Invalidate(); // 重绘以显示选中框
+                else
+                {
+                    CurrentTool = LayoutTool.PanPaper;
+                    selectedElement = null;
+                    foreach (var ele in page.Elements) ele.IsSelected = false;
+                    layoutBox.Invalidate();
+                }
             }
+            // --- 情况 5: 中键平移 ---
             else if (e.Button == MouseButtons.Middle)
             {
-                isPanning = true;
-                lastMouseLoc = e.Location;
+                CurrentTool = LayoutTool.PanPaper;
             }
         }
 
-        // ==========================================
-        // 修改 MouseMove：根据状态决定是移元素，还是移纸张
-        // ==========================================
         private void LayoutBox_MouseMove(object sender, MouseEventArgs e)
         {
-            float dx = e.X - lastMouseLoc.X;
-            float dy = e.Y - lastMouseLoc.Y;
+            // 【修复 1】手动获取 DPI
+            float dpi = 96;
+            using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
+            float pixelPerMM = dpi / 25.4f;
 
-            // 情况A: 正在拖拽元素
-            if (isDraggingElement && selectedElement != null)
+            // 1. 【激活状态】漫游地图内容
+            if (activeMapFrame != null)
             {
-                using (Graphics g = layoutBox.CreateGraphics())
+                if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle)
                 {
-                    // 把屏幕位移(dx) 换算回 纸张位移(mm)
-                    float pixelPerMM = this.CreateGraphics().DpiX / 25.4f;
-                    float mmDX = dx / zoomScale / pixelPerMM;
-                    float mmDY = dy / zoomScale / pixelPerMM;
-
-                    // 修改元素的位置
-                    selectedElement.Bounds.X += mmDX;
-                    selectedElement.Bounds.Y += mmDY;
-
+                    XVertex v1 = activeMapFrame.FrameView.ToMapVertex(mouseDownLoc);
+                    XVertex v2 = activeMapFrame.FrameView.ToMapVertex(e.Location);
+                    activeMapFrame.FrameView.OffsetCenter(v1, v2);
+                    mouseDownLoc = e.Location;
                     layoutBox.Invalidate();
-
                 }
-
+                return;
             }
-            // 情况B: 正在平移视图（纸张）
-            else if (isPanning)
+
+            // 2. 【创建模式】
+            if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
             {
-                offsetX += dx;
-                offsetY += dy;
+                layoutBox.Invalidate();
+                return;
+            }
+
+            // 3. 【调整大小】
+            if (CurrentTool == LayoutTool.ResizeElement && selectedElement != null)
+            {
+                float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
+                float dy = (e.Y - mouseDownLoc.Y) / zoomScale / pixelPerMM;
+
+                RectangleF newBounds = originalBounds;
+                switch (currentHandle)
+                {
+                    case ResizeHandle.Right: newBounds.Width += dx; break;
+                    case ResizeHandle.Bottom: newBounds.Height += dy; break;
+                    case ResizeHandle.BottomRight: newBounds.Width += dx; newBounds.Height += dy; break;
+                    case ResizeHandle.TopLeft: newBounds.X += dx; newBounds.Y += dy; newBounds.Width -= dx; newBounds.Height -= dy; break;
+                        // ... 可自行补充其他方向 ...
+                }
+                if (newBounds.Width < 5) newBounds.Width = 5;
+                if (newBounds.Height < 5) newBounds.Height = 5;
+
+                selectedElement.Bounds = newBounds;
                 layoutBox.Invalidate();
             }
 
-            lastMouseLoc = e.Location;
+            // 4. 【移动元素】
+            else if (CurrentTool == LayoutTool.Select && e.Button == MouseButtons.Left && selectedElement != null)
+            {
+                float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
+                float dy = (e.Y - mouseDownLoc.Y) / zoomScale / pixelPerMM;
+
+                selectedElement.Bounds = new RectangleF(
+                    originalBounds.X + dx, originalBounds.Y + dy,
+                    originalBounds.Width, originalBounds.Height);
+                layoutBox.Invalidate();
+            }
+
+            // 5. 【平移纸张】
+            else if (CurrentTool == LayoutTool.PanPaper && (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle))
+            {
+                offsetX += e.X - mouseDownLoc.X;
+                offsetY += e.Y - mouseDownLoc.Y;
+                mouseDownLoc = e.Location;
+                layoutBox.Invalidate();
+            }
+
+            UpdateCursor(e.Location, dpi);
         }
 
-        // ==========================================
-        // 修改 MouseUp
-        // ==========================================
         private void LayoutBox_MouseUp(object sender, MouseEventArgs e)
         {
-            isPanning = false;
-            isDraggingElement = false;
+            // 处理创建地图框的结束逻辑
+            if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
+            {
+                float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) dpi = g.DpiX;
+                float pixelPerMM = dpi / 25.4f;
+
+                Rectangle screenRect = GetScreenRectFromPoints(mouseDownLoc, e.Location);
+
+                if (screenRect.Width > 10 && screenRect.Height > 10)
+                {
+                    float x = (screenRect.X - offsetX) / zoomScale / pixelPerMM;
+                    float y = (screenRect.Y - offsetY) / zoomScale / pixelPerMM;
+                    float w = screenRect.Width / zoomScale / pixelPerMM;
+                    float h = screenRect.Height / zoomScale / pixelPerMM;
+
+                    if (_cacheLayers != null)
+                    {
+                        XExtent newExtent = _cacheExtent != null ? new XExtent(_cacheExtent) : new XExtent(0, 10, 0, 10);
+                        XMapFrame newFrame = new XMapFrame(
+                            new RectangleF(x, y, w, h),
+                            _cacheLayers,
+                            _cacheBaseLayer,
+                            newExtent
+                        );
+                        page.Elements.Add(newFrame);
+
+                        selectedElement = newFrame;
+                        selectedElement.IsSelected = true;
+                    }
+                }
+
+                CurrentTool = LayoutTool.Select;
+                layoutBox.Cursor = Cursors.Default;
+                layoutBox.Invalidate();
+            }
+            else if (activeMapFrame == null)
+            {
+                if (CurrentTool == LayoutTool.PanPaper) CurrentTool = LayoutTool.Select;
+            }
+            // 【新增】在方法的最后，无条件重置交互状态
+            currentHandle = ResizeHandle.None; // 停止缩放
+
+            // 只有非激活状态下才重置工具，防止平移纸张后工具丢失
+            if (activeMapFrame == null && CurrentTool != LayoutTool.Select)
+            {
+                if (CurrentTool == LayoutTool.PanPaper || CurrentTool == LayoutTool.ResizeElement)
+                    CurrentTool = LayoutTool.Select;
+            }
+
+            layoutBox.Invalidate();
         }
+
+        private void LayoutBox_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (activeMapFrame != null)
+            {
+                // 【修复 2】使用 CurrentMapExtent 来调用 ZoomToCenter
+                bool isZoomIn = e.Delta > 0;
+                XVertex center = activeMapFrame.FrameView.ToMapVertex(e.Location);
+
+                // 注意：这里我们直接操作 Extent
+                activeMapFrame.FrameView.CurrentMapExtent.ZoomToCenter(center, isZoomIn ? 1.1 : 0.9);
+
+                layoutBox.Invalidate(); // 下一次 Paint 时会通过 Draw 自动更新 View 的窗口参数
+            }
+            else
+            {
+                // 缩放纸张
+                if (e.Delta > 0) zoomScale *= 1.1f;
+                else zoomScale /= 1.1f;
+                layoutBox.Invalidate();
+            }
+        }
+
         // ==========================================
-        // LayoutControl.cs 新增的标尺代码
+        // 4. 辅助与绘图工具方法
         // ==========================================
 
-        // 定义标尺的宽度（像素）
         private const int RulerThickness = 25;
-
-        // 绘制标尺的核心方法
         private void DrawRulers(Graphics g, float dpi, float zoom, float offX, float offY)
         {
             float pixelPerMM = dpi / 25.4f;
-
-            // 1. 准备画笔和字体
             Pen linePen = Pens.Black;
             Font rulerFont = new Font("Arial", 7);
             Brush textBrush = Brushes.Black;
 
-            // 2. 绘制标尺背景条 (浅灰色背景)
-            // 顶部标尺背景
             g.FillRectangle(Brushes.WhiteSmoke, RulerThickness, 0, layoutBox.Width, RulerThickness);
-            // 左侧标尺背景
             g.FillRectangle(Brushes.WhiteSmoke, 0, RulerThickness, RulerThickness, layoutBox.Height);
-            // 左上角交汇处的方块
             g.FillRectangle(Brushes.LightGray, 0, 0, RulerThickness, RulerThickness);
+            g.DrawLine(Pens.Gray, 0, RulerThickness, layoutBox.Width, RulerThickness);
+            g.DrawLine(Pens.Gray, RulerThickness, 0, RulerThickness, layoutBox.Height);
 
-            // 绘制边框线
-            g.DrawLine(Pens.Gray, 0, RulerThickness, layoutBox.Width, RulerThickness); // 顶尺下缘
-            g.DrawLine(Pens.Gray, RulerThickness, 0, RulerThickness, layoutBox.Height); // 左尺右缘
-
-            // ===========================================
-            // 3. 绘制顶部标尺 (X轴)
-            // ===========================================
-            // 我们假设纸张最大宽度大一点，比如 500mm，循环绘制刻度
-            for (int i = 0; i <= 500; i++)
+            for (int i = 0; i <= 500; i += 1)
             {
-                // 计算当前毫米刻度(i)在屏幕上的像素位置 X
-                float screenX = offX + (i * pixelPerMM * zoom);
-
-                // 优化：只画在屏幕可视范围内的刻度，且不覆盖左侧标尺
-                if (screenX > RulerThickness && screenX < layoutBox.Width)
+                float sx = offX + (i * pixelPerMM * zoom);
+                if (sx > RulerThickness && sx < layoutBox.Width)
                 {
-                    // 判断刻度类型
-                    if (i % 10 == 0) // 每10mm一个大刻度 + 数字
+                    if (i % 10 == 0)
                     {
-                        g.DrawLine(linePen, screenX, 0, screenX, 15); // 长线
-                                                                      // 画数字 (居中)
-                        string text = i.ToString();
-                        SizeF size = g.MeasureString(text, rulerFont);
-                        g.DrawString(text, rulerFont, textBrush, screenX - size.Width / 2, 12); // 文字略微靠下
+                        g.DrawLine(linePen, sx, 0, sx, 15);
+                        string t = i.ToString();
+                        g.DrawString(t, rulerFont, textBrush, sx - g.MeasureString(t, rulerFont).Width / 2, 12);
                     }
-                    else if (i % 5 == 0) // 每5mm一个中刻度
-                    {
-                        // 只有放大到一定程度才画中刻度，太小了画出来会糊成一团
-                        if (zoom > 0.5)
-                            g.DrawLine(linePen, screenX, 10, screenX, 15);
-                    }
-                    else // 每1mm一个小刻度
-                    {
-                        // 只有放大很大时才画毫米刻度
-                        if (zoom > 1.0)
-                            g.DrawLine(linePen, screenX, 12, screenX, 15);
-                    }
+                    else if (i % 5 == 0 && zoom > 0.5) g.DrawLine(linePen, sx, 10, sx, 15);
                 }
             }
 
-            // ===========================================
-            // 4. 绘制左侧标尺 (Y轴)
-            // ===========================================
-            for (int i = 0; i <= 500; i++)
+            for (int i = 0; i <= 500; i += 1)
             {
-                // 计算当前毫米刻度(i)在屏幕上的像素位置 Y
-                float screenY = offY + (i * pixelPerMM * zoom);
-
-                if (screenY > RulerThickness && screenY < layoutBox.Height)
+                float sy = offY + (i * pixelPerMM * zoom);
+                if (sy > RulerThickness && sy < layoutBox.Height)
                 {
-                    if (i % 10 == 0) // 10mm
+                    if (i % 10 == 0)
                     {
-                        g.DrawLine(linePen, 0, screenY, 15, screenY);
-                        // 画数字 (旋转90度比较复杂，这里先横着画，简单点)
-                        string text = i.ToString();
-                        SizeF size = g.MeasureString(text, rulerFont);
-                        // 简单的横向文字，靠右对齐
-                        g.DrawString(text, rulerFont, textBrush, 2, screenY - size.Height / 2);
+                        g.DrawLine(linePen, 0, sy, 15, sy);
+                        g.DrawString(i.ToString(), rulerFont, textBrush, 2, sy - 6);
                     }
-                    else if (i % 5 == 0) // 5mm
-                    {
-                        if (zoom > 0.5)
-                            g.DrawLine(linePen, 10, screenY, 15, screenY);
-                    }
-                    else // 1mm
-                    {
-                        if (zoom > 1.0)
-                            g.DrawLine(linePen, 12, screenY, 15, screenY);
-                    }
+                    else if (i % 5 == 0 && zoom > 0.5) g.DrawLine(linePen, 10, sy, 15, sy);
                 }
             }
+        }
 
-            // 绘制当前鼠标位置的动态指示线（红线），这个属于高级功能，可以先不做
+        private void DrawSelectionHandles(Graphics g, float dpi)
+        {
+            RectangleF rect = MMToPixelRect(selectedElement.Bounds, dpi);
+            int size = 6;
+            PointF[] pts = GetHandlePoints(rect);
+            foreach (PointF p in pts)
+            {
+                g.FillRectangle(Brushes.White, p.X - size / 2, p.Y - size / 2, size, size);
+                g.DrawRectangle(Pens.Blue, p.X - size / 2, p.Y - size / 2, size, size);
+            }
+        }
+
+        private PointF[] GetHandlePoints(RectangleF rect)
+        {
+            return new PointF[] {
+                new PointF(rect.Left, rect.Top),
+                new PointF(rect.Left + rect.Width/2, rect.Top),
+                new PointF(rect.Right, rect.Top),
+                new PointF(rect.Right, rect.Top + rect.Height/2),
+                new PointF(rect.Right, rect.Bottom),
+                new PointF(rect.Left + rect.Width/2, rect.Bottom),
+                new PointF(rect.Left, rect.Bottom),
+                new PointF(rect.Left, rect.Top + rect.Height/2)
+            };
+        }
+
+        private bool CheckHitElement(Point mouseLoc, float pixelPerMM)
+        {
+            for (int i = page.Elements.Count - 1; i >= 0; i--)
+            {
+                var ele = page.Elements[i];
+                // 计算该元素当前的屏幕矩形 (这里重复计算是为了获取准确的判定区域)
+                float ex = ele.Bounds.X * pixelPerMM * zoomScale + offsetX;
+                float ey = ele.Bounds.Y * pixelPerMM * zoomScale + offsetY;
+                float ew = ele.Bounds.Width * pixelPerMM * zoomScale;
+                float eh = ele.Bounds.Height * pixelPerMM * zoomScale;
+
+                if (new RectangleF(ex, ey, ew, eh).Contains(mouseLoc))
+                {
+                    selectedElement = ele;
+                    selectedElement.IsSelected = true;
+                    foreach (var o in page.Elements) if (o != ele) o.IsSelected = false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private ResizeHandle CheckHitHandle(Point mouse, RectangleF rect)
+        {
+            int size = 10;
+            if (new RectangleF(rect.Right - size, rect.Bottom - size, size * 2, size * 2).Contains(mouse))
+                return ResizeHandle.BottomRight;
+            if (new RectangleF(rect.Right - size, rect.Top, size * 2, rect.Height).Contains(mouse))
+                return ResizeHandle.Right;
+            if (new RectangleF(rect.Left, rect.Bottom - size, rect.Width, size * 2).Contains(mouse))
+                return ResizeHandle.Bottom;
+            if (new RectangleF(rect.Left - size, rect.Top - size, size * 2, size * 2).Contains(mouse))
+                return ResizeHandle.TopLeft;
+
+            return ResizeHandle.None;
+        }
+
+        private RectangleF MMToPixelRect(RectangleF mmRect, float dpi)
+        {
+            float pixelPerMM = dpi / 25.4f;
+            return new RectangleF(
+                offsetX + mmRect.X * pixelPerMM * zoomScale,
+                offsetY + mmRect.Y * pixelPerMM * zoomScale,
+                mmRect.Width * pixelPerMM * zoomScale,
+                mmRect.Height * pixelPerMM * zoomScale
+            );
+        }
+
+        private void UpdateCursor(Point mouse, float dpi)
+        {
+            if (activeMapFrame != null)
+            {
+                layoutBox.Cursor = Cursors.NoMove2D;
+                return;
+            }
+            if (CurrentTool == LayoutTool.CreateMapFrame)
+            {
+                layoutBox.Cursor = Cursors.Cross;
+                return;
+            }
+            if (selectedElement != null && selectedElement.IsSelected)
+            {
+                var handle = CheckHitHandle(mouse, MMToPixelRect(selectedElement.Bounds, dpi));
+                if (handle == ResizeHandle.BottomRight) { layoutBox.Cursor = Cursors.SizeNWSE; return; }
+                if (handle == ResizeHandle.Right) { layoutBox.Cursor = Cursors.SizeWE; return; }
+                if (handle == ResizeHandle.Bottom) { layoutBox.Cursor = Cursors.SizeNS; return; }
+            }
+            layoutBox.Cursor = Cursors.Default;
+        }
+
+        private Rectangle GetScreenRectFromPoints(Point p1, Point p2)
+        {
+            return new Rectangle(
+                Math.Min(p1.X, p2.X), Math.Min(p1.Y, p2.Y),
+                Math.Abs(p1.X - p2.X), Math.Abs(p1.Y - p2.Y));
         }
     }
 }

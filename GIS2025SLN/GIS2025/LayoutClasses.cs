@@ -51,11 +51,13 @@ namespace XGIS
 
     // 2. 地图框元素 (Map Frame)
     // 这是最复杂的元素，它里面要画地图
+    // LayoutClasses.cs
+
     public class XMapFrame : XLayoutElement
     {
-        public List<XVectorLayer> Layers; // 要画哪些图层
-        public XTileLayer BaseLayer;      // 底图
-        public XView FrameView;           // 地图框内部的视图控制（控制比例尺、中心点）
+        public List<XVectorLayer> Layers;
+        public XTileLayer BaseLayer;
+        public XView FrameView;
 
         public XMapFrame(RectangleF bounds, List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
@@ -63,39 +65,46 @@ namespace XGIS
             this.Name = "Map Frame";
             this.Layers = layers;
             this.BaseLayer = baseLayer;
-
-            // 这里的 FrameView 需要根据纸张上的大小来初始化
-            // 我们暂时给它一个空的 Rectangle，等 Draw 的时候再更新实际像素大小
+            // 初始化时给一个临时的大小
             this.FrameView = new XView(new XExtent(currentExtent), new Rectangle(0, 0, 1, 1));
         }
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            // 1. 计算地图框在屏幕上的实际像素区域
+            // 1. 计算地图框在屏幕上的实际位置和大小
             RectangleF screenRectF = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+            // 转为整数矩形
             Rectangle screenRect = new Rectangle((int)screenRectF.X, (int)screenRectF.Y, (int)screenRectF.Width, (int)screenRectF.Height);
 
-            // 2. 更新 FrameView 的窗口大小，确保比例尺计算正确
-            FrameView.UpdateMapWindow(screenRect);
+            // 2. 【核心修复】更新视图窗口
+            // 注意：这里我们告诉 FrameView，你的窗口是从 (0,0) 开始的，宽即宽，高即高。
+            // 这样 FrameView 计算出来的坐标就是相对于框左上角的相对坐标。
+            FrameView.UpdateMapWindow(new Rectangle(0, 0, screenRect.Width, screenRect.Height));
 
-            // 3. 限制绘图区域 (Clip)，防止地图画出框外
+            // 3. 保存当前的绘图状态 (Clip 和 Transform)
             Region oldClip = g.Clip;
+            System.Drawing.Drawing2D.Matrix oldTransform = g.Transform;
+
+            // 4. 设置裁切区域 (防止画出框外)
             g.SetClip(screenRect);
 
-            // 4. 绘制背景（白色底）
-            g.FillRectangle(Brushes.White, screenRect);
+            // 5. 【核心修复】设置坐标平移
+            // 所有的绘图指令都会自动加上 (screenRect.X, screenRect.Y)
+            g.TranslateTransform(screenRect.X, screenRect.Y);
 
-            // 5. 绘制底图 (如果有)
+            // 6. 绘制背景 (相对于框的 0,0)
+            g.FillRectangle(Brushes.White, 0, 0, screenRect.Width, screenRect.Height);
+
+            // 7. 绘制图层
+            // 因为已经做了 TranslateTransform，这里画图时，Engine 算出的 (0,0) 会被画在屏幕的 (screenRect.X, screenRect.Y)
             if (BaseLayer != null && BaseLayer.Visible)
             {
                 BaseLayer.Draw(g, FrameView);
             }
 
-            // 6. 绘制矢量图层 (倒序，和 FormMap 一样)
-            // 注意：这里我们直接复用 XVectorLayer.draw，因为它接受 XView
-            // 只要传入的是 FrameView (对应纸张上的区域)，它就能画对！
             if (Layers != null)
             {
+                // 倒序绘制
                 for (int i = Layers.Count - 1; i >= 0; i--)
                 {
                     if (Layers[i].Visible)
@@ -103,13 +112,12 @@ namespace XGIS
                 }
             }
 
-            // 7. 绘制边框
-            g.DrawRectangle(Pens.Black, screenRect);
-
-            // 恢复 Clip
+            // 8. 恢复绘图状态 (非常重要！否则后面的元素位置会乱)
+            g.Transform = oldTransform;
             g.Clip = oldClip;
 
-            // 绘制选中状态
+            // 9. 绘制边框和选中框 (这部分是在 Layout 坐标系下的，所以恢复 Transform 后再画)
+            g.DrawRectangle(Pens.Black, screenRect);
             DrawSelectionBox(g, screenRectF);
         }
     }
