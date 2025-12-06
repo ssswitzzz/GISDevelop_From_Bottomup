@@ -353,6 +353,29 @@ namespace GIS2025
             // 3. 创建比例尺
             else if (CurrentTool == LayoutTool.CreateScaleBar && e.Button == MouseButtons.Left)
             {
+                // 【核心修改】寻找一个地图框来绑定
+                XMapFrame targetFrame = null;
+
+                // 1. 如果当前有激活的，就用激活的
+                if (activeMapFrame != null) targetFrame = activeMapFrame;
+                // 2. 如果没有，就找页面里第一个 MapFrame
+                else
+                {
+                    foreach (var ele in page.Elements)
+                    {
+                        if (ele is XMapFrame mf) { targetFrame = mf; break; }
+                    }
+                }
+
+                if (targetFrame == null)
+                {
+                    MessageBox.Show("请先创建一个地图框，才能添加比例尺！");
+                    CurrentTool = LayoutTool.Select;
+                    layoutBox.Cursor = Cursors.Default;
+                    layoutBox.Invalidate();
+                    return;
+                }
+
                 RectangleF mmRect;
                 if (screenRect.Width < 5)
                 {
@@ -360,20 +383,54 @@ namespace GIS2025
                     mmRect = new RectangleF(clickPt.X, clickPt.Y, 40, 10);
                 }
                 else mmRect = PixelToMMRect(screenRect, dpi);
-                FinishCreation(new XScaleBar(mmRect, _pendingScaleBarStyle));
+
+                // 传入 targetFrame
+                FinishCreation(new XScaleBar(mmRect, _pendingScaleBarStyle, targetFrame));
                 return;
             }
-            // 4. 经纬网开关
+            // 4. 经纬网开关 (修复版：穿透查找，专门找地图框)
             else if (CurrentTool == LayoutTool.ToggleGrid && e.Button == MouseButtons.Left)
             {
-                if (CheckHitElement(e.Location, dpi / 25.4f) && selectedElement is XMapFrame mapFrame)
+                float pixelPerMM = dpi / 25.4f;
+                bool found = false;
+
+                // 倒序遍历，查找鼠标下的所有元素
+                for (int i = page.Elements.Count - 1; i >= 0; i--)
                 {
-                    mapFrame.ShowGrid = !mapFrame.ShowGrid;
+                    var ele = page.Elements[i];
+
+                    // 【关键修复】这里只关心是不是 XMapFrame
+                    if (ele is XMapFrame mapFrame)
+                    {
+                        // 计算该地图框在屏幕上的位置
+                        RectangleF rect = MMToPixelRect(ele.Bounds, dpi);
+
+                        // 稍微扩大一点点击范围 (容错 2px)
+                        rect.Inflate(2, 2);
+
+                        if (rect.Contains(e.Location))
+                        {
+                            // 找到了！切换状态
+                            mapFrame.ShowGrid = !mapFrame.ShowGrid;
+                            found = true;
+                            break; // 找到一个就停，避免一次点穿多个
+                        }
+                    }
+                }
+
+                if (found)
+                {
+                    // 如果点中了，就切回普通选择模式
                     CurrentTool = LayoutTool.Select;
                     layoutBox.Cursor = Cursors.Default;
-                    layoutBox.Invalidate();
-                    return;
+                    layoutBox.Invalidate(); // 重绘以显示/隐藏网格
                 }
+                else
+                {
+                    // 如果没点中，给个提示（可选）
+                    // MessageBox.Show("请点击地图框区域");
+                }
+                return;
             }
 
             // 重置状态

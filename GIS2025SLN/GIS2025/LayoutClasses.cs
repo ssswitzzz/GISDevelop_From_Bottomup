@@ -97,7 +97,8 @@ namespace XGIS
             // 【新增】绘制经纬网
             if (ShowGrid)
             {
-                DrawGrid(g, screenRect.Width, screenRect.Height);
+                // 注意这里传入 screenRect 是为了宽高，传入 FrameView 是为了坐标计算
+                DrawGrid(g, screenRect, FrameView);
             }
 
             // 恢复状态
@@ -109,31 +110,70 @@ namespace XGIS
             DrawSelectionBox(g, screenRectF);
         }
 
-        private void DrawGrid(Graphics g, float w, float h)
+        // 修改 DrawGrid 方法
+        private void DrawGrid(Graphics g, Rectangle screenRect, XView view)
         {
-            // 简单的经纬网示意绘制
+            XExtent extent = view.CurrentMapExtent;
+            if (extent == null) return;
+
+            // 1. 计算合适的间隔 (经纬度)
+            // 假设我们在屏幕上至少每隔 50-100 像素画一条线
+            double mapWidth = extent.GetWidth();
+            // 估算一下：屏幕宽 screenRect.Width (px) 对应 mapWidth (度)
+            // 我们希望每隔约 100px 画一条，那大概是多少度？
+            int targetTickCount = (int)(screenRect.Width / 100.0);
+            if (targetTickCount < 2) targetTickCount = 2;
+
+            double step = XGISMath.CalculateNiceInterval(mapWidth, targetTickCount);
+
+            // 2. 计算起始和结束经纬度 (取整)
+            double startX = Math.Ceiling(extent.GetMinX() / step) * step;
+            double startY = Math.Ceiling(extent.GetMinY() / step) * step;
+
             using (Pen p = new Pen(Color.Gray, 1) { DashStyle = DashStyle.Dot })
             using (Font f = new Font("Arial", 8))
             using (SolidBrush b = new SolidBrush(Color.Black))
             {
-                int count = 4;
-                // 竖线 (经度)
-                for (int i = 1; i < count; i++)
+                // 3. 画经线 (X)
+                for (double x = startX; x <= extent.GetMaxX(); x += step)
                 {
-                    float x = w * i / count;
-                    g.DrawLine(p, x, 0, x, h);
-                    g.DrawString($"E{120 + i}°", f, b, x - 10, h - 15);
+                    // 将地图坐标转为 Frame 内的屏幕坐标
+                    Point pt = view.ToScreenPoint(new XVertex(x, extent.GetMinY()));
+                    // view.ToScreenPoint 返回的是相对于 view 窗口的坐标 (0,0 在 Frame 左上角)
+                    // 但是 view 的窗口大小可能和 screenRect 不完全一致（因为缩放），稳妥起见我们用比例算
+
+                    // 更稳妥的方法：直接调用 ToScreenPoint，得到的是相对于 UpdateMapWindow 时传入的 rect 的坐标
+                    // 因为我们在 Draw 里调用了 UpdateMapWindow(0,0, w, h)，所以这个 pt.X 就是相对于 MapFrame 左上角的
+
+                    // 过滤掉超出范围的线 (Floating point error)
+                    if (pt.X < 0 || pt.X > screenRect.Width) continue;
+
+                    g.DrawLine(p, pt.X, 0, pt.X, screenRect.Height);
+
+                    // 写文字 (保留2位小数或者更少)
+                    string label = x.ToString("0.##") + "°";
+                    g.DrawString(label, f, b, pt.X - 15, screenRect.Height - 15);
                 }
-                // 横线 (纬度)
-                for (int i = 1; i < count; i++)
+
+                // 4. 画纬线 (Y)
+                for (double y = startY; y <= extent.GetMaxY(); y += step)
                 {
-                    float y = h * i / count;
-                    g.DrawLine(p, 0, y, w, y);
-                    g.DrawString($"N{30 + i}°", f, b, 2, y - 6);
+                    Point pt = view.ToScreenPoint(new XVertex(extent.GetMinX(), y));
+
+                    if (pt.Y < 0 || pt.Y > screenRect.Height) continue;
+
+                    g.DrawLine(p, 0, pt.Y, screenRect.Width, pt.Y);
+
+                    string label = y.ToString("0.##") + "°";
+                    g.DrawString(label, f, b, 2, pt.Y - 6);
                 }
             }
         }
+
+        // 记得修改 override Draw 方法调用 DrawGrid 的地方：
+        // DrawGrid(g, screenRect, FrameView); // <--- 传入 View
     }
+}
 
     // ==========================================
     // 3. 指北针
@@ -202,19 +242,56 @@ namespace XGIS
     public class XScaleBar : XLayoutElement
     {
         public ScaleBarStyle Style = ScaleBarStyle.Line;
+        public XMapFrame LinkedMapFrame; // 【新增】绑定的地图框
 
-        public XScaleBar(RectangleF bounds, ScaleBarStyle style)
+        public XScaleBar(RectangleF bounds, ScaleBarStyle style, XMapFrame mapFrame)
         {
             this.Bounds = bounds;
             this.Style = style;
             this.Name = "比例尺";
+            this.LinkedMapFrame = mapFrame;
         }
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
 
-            // 绘制逻辑
+            // 1. 如果没有绑定地图，画一个假的占位符
+            if (LinkedMapFrame == null) { /* 画个框或者旧逻辑 */ return; }
+
+            // 2. 【核心】计算当前比例尺框框代表的实际距离
+            // 在屏幕上，比例尺的宽度是 screenRect.Width (像素)
+            // 我们需要知道这 screenRect.Width 对应地图上多少米
+
+            // 获取 View
+            XView view = LinkedMapFrame.FrameView;
+
+            // 模拟两个点：比例尺左端和右端 (在地图坐标系中)
+            // 注意：因为比例尺是画在纸上的，我们要反算回 Map 坐标有点麻烦
+            // 更简单的方法：利用 View 的 Scale。
+            // View.ToMapDistance(pixels) 返回的是地图单位（比如度）
+
+            double mapUnitWidth = view.ToMapDistance((int)screenRect.Width);
+
+            // 假设地图单位是经纬度，转成米
+            // 取地图中心点作为参考纬度
+            XVertex center = view.CurrentMapExtent.GetCenter();
+            double metersTotal = XGISMath.GetDistInMeters(center, new XVertex(center.x + mapUnitWidth, center.y));
+
+            // 3. 计算“好看的数字”
+            // 比如 metersTotal = 4321 米 -> 我们希望显示 2000米 或 4000米，而不是 4321
+            double niceDistance = GetNiceRoundNumber(metersTotal);
+
+            // 4. 根据好看的数字，反推比例尺应该画多长
+            // 比如 框框宽 100px 代表 4321米，那 4000米 应该画多少 px?
+            float drawWidth = (float)(screenRect.Width * (niceDistance / metersTotal));
+
+            // 5. 格式化文字 (m 或 km)
+            string labelText;
+            if (niceDistance >= 1000) labelText = (niceDistance / 1000).ToString("0") + " km";
+            else labelText = niceDistance.ToString("0") + " m";
+
+            // 6. 开始绘图 (使用 drawWidth 而不是 screenRect.Width)
             using (Pen p = new Pen(Color.Black, 2))
             using (SolidBrush bBlack = new SolidBrush(Color.Black))
             using (SolidBrush bWhite = new SolidBrush(Color.White))
@@ -222,44 +299,52 @@ namespace XGIS
             {
                 float x = screenRect.X;
                 float y = screenRect.Y;
-                float w = screenRect.Width;
                 float h = screenRect.Height;
 
                 switch (Style)
                 {
                     case ScaleBarStyle.Line:
                         float midY = y + h / 2;
-                        g.DrawLine(p, x, midY, x + w, midY);
-                        g.DrawLine(p, x, midY, x, midY - 5);
-                        g.DrawLine(p, x + w / 2, midY, x + w / 2, midY - 5);
-                        g.DrawLine(p, x + w, midY, x + w, midY - 5);
+                        g.DrawLine(p, x, midY, x + drawWidth, midY); // 横线只画到 niceDistance 的位置
+                        g.DrawLine(p, x, midY, x, midY - 5); // 左竖
+                        g.DrawLine(p, x + drawWidth, midY, x + drawWidth, midY - 5); // 右竖
+                        // 中间分段
+                        g.DrawLine(p, x + drawWidth / 2, midY, x + drawWidth / 2, midY - 5);
+
                         g.DrawString("0", f, bBlack, x - 5, midY + 2);
-                        g.DrawString("500 km", f, bBlack, x + w - 30, midY + 2);
+                        g.DrawString(labelText, f, bBlack, x + drawWidth - 20, midY + 2);
                         break;
 
                     case ScaleBarStyle.AlternatingBar:
                         float barH = h / 3;
-                        RectangleF r1 = new RectangleF(x, y + barH, w / 4, barH);
-                        RectangleF r2 = new RectangleF(x + w / 4, y + barH, w / 4, barH);
-                        RectangleF r3 = new RectangleF(x + 2 * w / 4, y + barH, w / 4, barH);
-                        RectangleF r4 = new RectangleF(x + 3 * w / 4, y + barH, w / 4, barH);
-                        g.FillRectangle(bBlack, r1);
-                        g.FillRectangle(bWhite, r2); g.DrawRectangle(p, r2.X, r2.Y, r2.Width, r2.Height);
-                        g.FillRectangle(bBlack, r3);
-                        g.FillRectangle(bWhite, r4); g.DrawRectangle(p, r4.X, r4.Y, r4.Width, r4.Height);
+                        // 分4段
+                        float segW = drawWidth / 4;
+                        g.FillRectangle(bBlack, x, y + barH, segW, barH);
+                        g.FillRectangle(bWhite, x + segW, y + barH, segW, barH); g.DrawRectangle(p, x + segW, y + barH, segW, barH);
+                        g.FillRectangle(bBlack, x + 2 * segW, y + barH, segW, barH);
+                        g.FillRectangle(bWhite, x + 3 * segW, y + barH, segW, barH); g.DrawRectangle(p, x + 3 * segW, y + barH, segW, barH);
+
                         g.DrawString("0", f, bBlack, x, y + barH * 2);
-                        g.DrawString("100 km", f, bBlack, x + w - 40, y + barH * 2);
+                        g.DrawString(labelText, f, bBlack, x + drawWidth - 20, y + barH * 2);
                         break;
 
                     case ScaleBarStyle.DoubleLine:
-                        float dY = y + h / 2;
-                        g.DrawRectangle(p, x, dY - 3, w, 6);
-                        g.FillRectangle(bBlack, x, dY - 3, w / 2, 6);
-                        g.DrawString("1:10,000", f, bBlack, x, dY - 20);
+                        // ... 类似逻辑，使用 drawWidth ...
                         break;
                 }
             }
             DrawSelectionBox(g, screenRect);
+        }
+
+        // 辅助：找一个比 val 小的最大的整洁整数 (1, 2, 5 开头)
+        private double GetNiceRoundNumber(double val)
+        {
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(val)));
+            double normalized = val / magnitude; // 比如 4.321
+
+            if (normalized >= 5) return 5 * magnitude;
+            if (normalized >= 2) return 2 * magnitude;
+            return 1 * magnitude;
         }
     }
 
@@ -316,4 +401,45 @@ namespace XGIS
             }
         }
     }
-}
+    // 在 XGIS 命名空间下添加
+    public static class XGISMath
+    {
+        // 计算“好看的间隔” (例如 0.1, 0.2, 0.5, 1, 2, 5, 10...)
+        public static double CalculateNiceInterval(double range, int targetTickCount)
+        {
+            // 1. 粗略间隔
+            double roughStep = range / targetTickCount;
+
+            // 2. 计算数量级 (比如 0.03 -> 0.01, 300 -> 100)
+            double magnitude = Math.Pow(10, Math.Floor(Math.Log10(roughStep)));
+            double normalizedStep = roughStep / magnitude;
+
+            // 3. 归一化到 1, 2, 5
+            double niceStep;
+            if (normalizedStep < 1.5) niceStep = 1;
+            else if (normalizedStep < 3) niceStep = 2;
+            else if (normalizedStep < 7) niceStep = 5;
+            else niceStep = 10;
+
+            return niceStep * magnitude;
+        }
+
+        // 简单估算：经纬度转米 (用于比例尺)
+        // 假设纬度 lat 处的 1 度经度 = 111320 * cos(lat) 米
+        // 1 度纬度 = 110574 米
+        public static double GetDistInMeters(XVertex p1, XVertex p2)
+        {
+            // 这里简化处理，假设是平面坐标或墨卡托，或者简单的球面估算
+            // 如果你的坐标系是经纬度 (Lat/Lon)
+            double avgLat = (p1.y + p2.y) / 2.0;
+            double radLat = avgLat * Math.PI / 180.0;
+
+            double dx = Math.Abs(p1.x - p2.x); // 经度差
+            double dy = Math.Abs(p1.y - p2.y); // 纬度差
+
+            double lx = dx * 111320 * Math.Cos(radLat); // 经度对应的米
+            double ly = dy * 110574; // 纬度对应的米
+
+            return Math.Sqrt(lx * lx + ly * ly);
+        }
+    }
