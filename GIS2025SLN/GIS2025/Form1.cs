@@ -674,5 +674,15 @@ namespace GIS2025
             else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
             if (l != null) new FormAttribute(l).Show();
         }
+        // 这就是你按钮点击事件里唯一需要写的代码
+        private void btnAddText_Click(object sender, EventArgs e)
+        {
+            // 1. 如果不在 Layout 页面，先切过去（可选）
+            if (tabControl1.SelectedTab != tabPage2)
+                tabControl1.SelectedTab = tabPage2;
+
+            // 2. 告诉 LayoutControl：准备开始画文字！
+            myLayoutControl.StartCreateText();
+        }
     }
 }

@@ -68,6 +68,12 @@
     <Compile Include="FormLabelProperty.Designer.cs">
       <DependentUpon>FormLabelProperty.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormTextProperty.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormTextProperty.Designer.cs">
+      <DependentUpon>FormTextProperty.cs</DependentUpon>
+    </Compile>
     <Compile Include="LayoutClasses.cs" />
     <Compile Include="LayoutControl.cs">
       <SubType>UserControl</SubType>

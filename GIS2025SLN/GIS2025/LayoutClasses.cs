@@ -52,6 +52,7 @@ namespace XGIS
         public XTileLayer BaseLayer;
         public XView FrameView;
         public bool ShowGrid = false;
+        public XExtent StableExtent;
 
         public XMapFrame(RectangleF bounds, List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
@@ -59,6 +60,8 @@ namespace XGIS
             this.Name = "地图框"; // 改个中文名方便看
             this.Layers = layers;
             this.BaseLayer = baseLayer;
+            // 初始时，稳定范围 = 传入的范围
+            this.StableExtent = new XExtent(currentExtent);
             this.FrameView = new XView(new XExtent(currentExtent), new Rectangle(0, 0, 1, 1));
         }
 
@@ -69,8 +72,10 @@ namespace XGIS
             RectangleF screenRectF = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             Rectangle screenRect = new Rectangle((int)screenRectF.X, (int)screenRectF.Y, (int)screenRectF.Width, (int)screenRectF.Height);
 
-            // 更新视图窗口大小
-            FrameView.UpdateMapWindow(new Rectangle(0, 0, screenRect.Width, screenRect.Height));
+            // 【核心修复逻辑】
+            // 每次绘制前，强制用 StableExtent 重新计算 View，
+            // 这样无论 Frame 怎么忽大忽小，地图都会根据这个稳定的范围重新适配比例尺
+            FrameView.Update(new XExtent(StableExtent), screenRect);
 
             Region oldClip = g.Clip;
             System.Drawing.Drawing2D.Matrix oldTransform = g.Transform;
@@ -295,6 +300,70 @@ namespace XGIS
             if (normalized >= 5) return 5 * magnitude;
             if (normalized >= 2) return 2 * magnitude;
             return 1 * magnitude;
+        }
+    }
+    // ==========================================
+    // 【新增】文本元素
+    // ==========================================
+    // ==========================================
+    // 【升级版】文本元素 (支持描边)
+    // ==========================================
+    public class XTextElement : XLayoutElement
+    {
+        public string Text = "文本";
+        public Font Font = new Font("宋体", 12); // 默认宋体
+        public Color Color = Color.Black;
+
+        // 新增描边属性
+        public bool UseOutline = false;
+        public Color OutlineColor = Color.White;
+        public float OutlineWidth = 2.0f;
+
+        public XTextElement(RectangleF bounds, string text)
+        {
+            this.Bounds = bounds;
+            this.Text = text;
+            this.Name = "文本框";
+        }
+
+        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            if (!Visible) return;
+            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+
+            // 使用 GraphicsPath 实现高质量描边文字
+            using (System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                // 计算字体在屏幕上的实际像素大小
+                float emSize = g.DpiY * Font.SizeInPoints / 72 * zoomScale;
+
+                // 将文字添加到路径
+                path.AddString(
+                    Text,
+                    Font.FontFamily,
+                    (int)Font.Style,
+                    emSize,
+                    screenRect.Location, // 位置
+                    StringFormat.GenericDefault);
+
+                // 1. 如果开启描边，先画描边 (画在底下)
+                if (UseOutline)
+                {
+                    using (Pen p = new Pen(OutlineColor, OutlineWidth * zoomScale))
+                    {
+                        p.LineJoin = System.Drawing.Drawing2D.LineJoin.Round; // 圆角连接，防止尖刺
+                        g.DrawPath(p, path);
+                    }
+                }
+
+                // 2. 填充文字颜色
+                using (SolidBrush b = new SolidBrush(Color))
+                {
+                    g.FillPath(b, path);
+                }
+            }
+
+            DrawSelectionBox(g, screenRect);
         }
     }
 

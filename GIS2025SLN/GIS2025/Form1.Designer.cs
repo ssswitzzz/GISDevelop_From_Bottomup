@@ -40,6 +40,10 @@
             this.button_FullExtent = new System.Windows.Forms.Button();
             this.btnSelect = new System.Windows.Forms.Button();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.btnAddGrid = new System.Windows.Forms.Button();
+            this.btnAddScaleBar = new System.Windows.Forms.Button();
+            this.btnAddNorthArrow = new System.Windows.Forms.Button();
+            this.btnAddMapFrame = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
@@ -49,18 +53,15 @@
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.btnAddNorthArrow = new System.Windows.Forms.Button();
-            this.btnAddMapFrame = new System.Windows.Forms.Button();
             this.cmsNorthArrow = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.simpleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.circleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.starToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.myLayoutControl = new GIS2025.LayoutControl();
-            this.btnAddScaleBar = new System.Windows.Forms.Button();
             this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
-            this.btnAddGrid = new System.Windows.Forms.Button();
+            this.btnAddText = new System.Windows.Forms.Button();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -181,6 +182,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddText);
             this.tabPage2.Controls.Add(this.btnAddGrid);
             this.tabPage2.Controls.Add(this.btnAddScaleBar);
             this.tabPage2.Controls.Add(this.btnAddNorthArrow);
@@ -192,6 +194,54 @@
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Layout";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // btnAddGrid
+            // 
+            this.btnAddGrid.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddGrid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddGrid.Location = new System.Drawing.Point(627, 3);
+            this.btnAddGrid.Name = "btnAddGrid";
+            this.btnAddGrid.Size = new System.Drawing.Size(208, 72);
+            this.btnAddGrid.TabIndex = 4;
+            this.btnAddGrid.Text = "添加经纬网";
+            this.btnAddGrid.UseVisualStyleBackColor = true;
+            this.btnAddGrid.Click += new System.EventHandler(this.btnAddGrid_Click);
+            // 
+            // btnAddScaleBar
+            // 
+            this.btnAddScaleBar.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddScaleBar.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddScaleBar.Location = new System.Drawing.Point(419, 3);
+            this.btnAddScaleBar.Name = "btnAddScaleBar";
+            this.btnAddScaleBar.Size = new System.Drawing.Size(208, 72);
+            this.btnAddScaleBar.TabIndex = 3;
+            this.btnAddScaleBar.Text = "添加比例尺";
+            this.btnAddScaleBar.UseVisualStyleBackColor = true;
+            this.btnAddScaleBar.Click += new System.EventHandler(this.btnAddScaleBar_Click);
+            // 
+            // btnAddNorthArrow
+            // 
+            this.btnAddNorthArrow.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddNorthArrow.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddNorthArrow.Location = new System.Drawing.Point(211, 3);
+            this.btnAddNorthArrow.Name = "btnAddNorthArrow";
+            this.btnAddNorthArrow.Size = new System.Drawing.Size(208, 72);
+            this.btnAddNorthArrow.TabIndex = 2;
+            this.btnAddNorthArrow.Text = "添加指北针";
+            this.btnAddNorthArrow.UseVisualStyleBackColor = true;
+            this.btnAddNorthArrow.Click += new System.EventHandler(this.btnAddNorthArrow_Click);
+            // 
+            // btnAddMapFrame
+            // 
+            this.btnAddMapFrame.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddMapFrame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddMapFrame.Location = new System.Drawing.Point(3, 3);
+            this.btnAddMapFrame.Name = "btnAddMapFrame";
+            this.btnAddMapFrame.Size = new System.Drawing.Size(208, 72);
+            this.btnAddMapFrame.TabIndex = 1;
+            this.btnAddMapFrame.Text = "添加Map Frame";
+            this.btnAddMapFrame.UseVisualStyleBackColor = true;
+            this.btnAddMapFrame.Click += new System.EventHandler(this.btnAddMapFrame_Click);
             // 
             // splitContainer1
             // 
@@ -286,30 +336,6 @@
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
             // 
-            // btnAddNorthArrow
-            // 
-            this.btnAddNorthArrow.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddNorthArrow.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddNorthArrow.Location = new System.Drawing.Point(211, 3);
-            this.btnAddNorthArrow.Name = "btnAddNorthArrow";
-            this.btnAddNorthArrow.Size = new System.Drawing.Size(208, 72);
-            this.btnAddNorthArrow.TabIndex = 2;
-            this.btnAddNorthArrow.Text = "添加指北针";
-            this.btnAddNorthArrow.UseVisualStyleBackColor = true;
-            this.btnAddNorthArrow.Click += new System.EventHandler(this.btnAddNorthArrow_Click);
-            // 
-            // btnAddMapFrame
-            // 
-            this.btnAddMapFrame.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddMapFrame.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddMapFrame.Location = new System.Drawing.Point(3, 3);
-            this.btnAddMapFrame.Name = "btnAddMapFrame";
-            this.btnAddMapFrame.Size = new System.Drawing.Size(208, 72);
-            this.btnAddMapFrame.TabIndex = 1;
-            this.btnAddMapFrame.Text = "添加Map Frame";
-            this.btnAddMapFrame.UseVisualStyleBackColor = true;
-            this.btnAddMapFrame.Click += new System.EventHandler(this.btnAddMapFrame_Click);
-            // 
             // cmsNorthArrow
             // 
             this.cmsNorthArrow.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -341,26 +367,6 @@
             this.starToolStripMenuItem.Text = "Star";
             this.starToolStripMenuItem.Click += new System.EventHandler(this.toolStripMenuItemStar_Click);
             // 
-            // myLayoutControl
-            // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
-            // 
-            // btnAddScaleBar
-            // 
-            this.btnAddScaleBar.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddScaleBar.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddScaleBar.Location = new System.Drawing.Point(419, 3);
-            this.btnAddScaleBar.Name = "btnAddScaleBar";
-            this.btnAddScaleBar.Size = new System.Drawing.Size(208, 72);
-            this.btnAddScaleBar.TabIndex = 3;
-            this.btnAddScaleBar.Text = "添加比例尺";
-            this.btnAddScaleBar.UseVisualStyleBackColor = true;
-            this.btnAddScaleBar.Click += new System.EventHandler(this.btnAddScaleBar_Click);
-            // 
             // cmsScaleBar
             // 
             this.cmsScaleBar.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -384,17 +390,25 @@
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
             // 
-            // btnAddGrid
+            // btnAddText
             // 
-            this.btnAddGrid.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddGrid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddGrid.Location = new System.Drawing.Point(627, 3);
-            this.btnAddGrid.Name = "btnAddGrid";
-            this.btnAddGrid.Size = new System.Drawing.Size(208, 72);
-            this.btnAddGrid.TabIndex = 4;
-            this.btnAddGrid.Text = "添加经纬网";
-            this.btnAddGrid.UseVisualStyleBackColor = true;
-            this.btnAddGrid.Click += new System.EventHandler(this.btnAddGrid_Click);
+            this.btnAddText.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddText.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddText.Location = new System.Drawing.Point(835, 3);
+            this.btnAddText.Name = "btnAddText";
+            this.btnAddText.Size = new System.Drawing.Size(208, 72);
+            this.btnAddText.TabIndex = 5;
+            this.btnAddText.Text = "添加文本框";
+            this.btnAddText.UseVisualStyleBackColor = true;
+            this.btnAddText.Click += new System.EventHandler(this.btnAddText_Click);
+            // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
             // 
             // FormMap
             // 
@@ -460,6 +474,7 @@
         private System.Windows.Forms.ContextMenuStrip cmsScaleBar;
         private System.Windows.Forms.ToolStripMenuItem tsmiScaleLine;
         private System.Windows.Forms.ToolStripMenuItem tsmiScaleBar;
+        private System.Windows.Forms.Button btnAddText;
     }
 }
 
