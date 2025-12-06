@@ -43,7 +43,6 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
-            this.myLayoutControl = new GIS2025.LayoutControl();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -56,6 +55,12 @@
             this.simpleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.circleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.starToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.myLayoutControl = new GIS2025.LayoutControl();
+            this.btnAddScaleBar = new System.Windows.Forms.Button();
+            this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnAddGrid = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -68,6 +73,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.contextMenuLayer.SuspendLayout();
             this.cmsNorthArrow.SuspendLayout();
+            this.cmsScaleBar.SuspendLayout();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -175,6 +181,8 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddGrid);
+            this.tabPage2.Controls.Add(this.btnAddScaleBar);
             this.tabPage2.Controls.Add(this.btnAddNorthArrow);
             this.tabPage2.Controls.Add(this.btnAddMapFrame);
             this.tabPage2.Location = new System.Drawing.Point(4, 38);
@@ -230,14 +238,6 @@
             this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
             this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
             this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
-            // 
-            // myLayoutControl
-            // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
             // 
             // contextMenuLayer
             // 
@@ -341,6 +341,61 @@
             this.starToolStripMenuItem.Text = "Star";
             this.starToolStripMenuItem.Click += new System.EventHandler(this.toolStripMenuItemStar_Click);
             // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
+            // 
+            // btnAddScaleBar
+            // 
+            this.btnAddScaleBar.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddScaleBar.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddScaleBar.Location = new System.Drawing.Point(419, 3);
+            this.btnAddScaleBar.Name = "btnAddScaleBar";
+            this.btnAddScaleBar.Size = new System.Drawing.Size(208, 72);
+            this.btnAddScaleBar.TabIndex = 3;
+            this.btnAddScaleBar.Text = "添加比例尺";
+            this.btnAddScaleBar.UseVisualStyleBackColor = true;
+            this.btnAddScaleBar.Click += new System.EventHandler(this.btnAddScaleBar_Click);
+            // 
+            // cmsScaleBar
+            // 
+            this.cmsScaleBar.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.cmsScaleBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiScaleLine,
+            this.tsmiScaleBar});
+            this.cmsScaleBar.Name = "cmsScaleBar";
+            this.cmsScaleBar.Size = new System.Drawing.Size(116, 64);
+            // 
+            // tsmiScaleLine
+            // 
+            this.tsmiScaleLine.Name = "tsmiScaleLine";
+            this.tsmiScaleLine.Size = new System.Drawing.Size(115, 30);
+            this.tsmiScaleLine.Text = "Line";
+            this.tsmiScaleLine.Click += new System.EventHandler(this.tsmiScaleLine_Click);
+            // 
+            // tsmiScaleBar
+            // 
+            this.tsmiScaleBar.Name = "tsmiScaleBar";
+            this.tsmiScaleBar.Size = new System.Drawing.Size(115, 30);
+            this.tsmiScaleBar.Text = "Bar";
+            this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
+            // 
+            // btnAddGrid
+            // 
+            this.btnAddGrid.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddGrid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddGrid.Location = new System.Drawing.Point(627, 3);
+            this.btnAddGrid.Name = "btnAddGrid";
+            this.btnAddGrid.Size = new System.Drawing.Size(208, 72);
+            this.btnAddGrid.TabIndex = 4;
+            this.btnAddGrid.Text = "添加经纬网";
+            this.btnAddGrid.UseVisualStyleBackColor = true;
+            this.btnAddGrid.Click += new System.EventHandler(this.btnAddGrid_Click);
+            // 
             // FormMap
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 18F);
@@ -365,6 +420,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.contextMenuLayer.ResumeLayout(false);
             this.cmsNorthArrow.ResumeLayout(false);
+            this.cmsScaleBar.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -399,6 +455,11 @@
         private System.Windows.Forms.ToolStripMenuItem simpleToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem circleToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem starToolStripMenuItem;
+        private System.Windows.Forms.Button btnAddGrid;
+        private System.Windows.Forms.Button btnAddScaleBar;
+        private System.Windows.Forms.ContextMenuStrip cmsScaleBar;
+        private System.Windows.Forms.ToolStripMenuItem tsmiScaleLine;
+        private System.Windows.Forms.ToolStripMenuItem tsmiScaleBar;
     }
 }
 

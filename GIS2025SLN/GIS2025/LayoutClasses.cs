@@ -6,28 +6,22 @@ using XGIS;
 
 namespace XGIS
 {
-    // 1. 布局元素的基类
-    // 定义所有在纸上东西的共性：有位置(Rect)，能被选中，能画出来
+    // ==========================================
+    // 1. 布局元素基类
+    // ==========================================
     public abstract class XLayoutElement
     {
-        // 纸张上的位置（单位：毫米 mm），比如 (20, 20, 200, 150)
         public RectangleF Bounds;
         public bool IsSelected = false;
-
-        // 名字，用于图层列表显示
         public string Name = "Element";
 
         // 核心绘制方法
-        // g: 画笔
-        // screenDpi: 屏幕DPI，用于将毫米换算成像素
-        // zoomScale: 布局视图的缩放比例（比如用户把纸张放大了200%看细节）
-        // offsetX/Y: 纸张在屏幕上的偏移量
         public abstract void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY);
 
-        // 辅助函数：将毫米转换为屏幕像素
+        // 辅助：将毫米转换为屏幕像素
         protected RectangleF MMToPixel(float dpi, float zoom, float offX, float offY)
         {
-            float pixelPerMM = dpi / 25.4f; // 1英寸=25.4mm
+            float pixelPerMM = dpi / 25.4f;
             float x = Bounds.X * pixelPerMM * zoom + offX;
             float y = Bounds.Y * pixelPerMM * zoom + offY;
             float w = Bounds.Width * pixelPerMM * zoom;
@@ -35,7 +29,7 @@ namespace XGIS
             return new RectangleF(x, y, w, h);
         }
 
-        // 绘制选中框（当被选中时显示一个小蓝框）
+        // 辅助：绘制选中状态的虚线框
         protected void DrawSelectionBox(Graphics g, RectangleF rect)
         {
             if (IsSelected)
@@ -49,15 +43,15 @@ namespace XGIS
         }
     }
 
-    // 2. 地图框元素 (Map Frame)
-    // 这是最复杂的元素，它里面要画地图
-    // LayoutClasses.cs
-
+    // ==========================================
+    // 2. 地图框 (支持经纬网)
+    // ==========================================
     public class XMapFrame : XLayoutElement
     {
         public List<XVectorLayer> Layers;
         public XTileLayer BaseLayer;
         public XView FrameView;
+        public bool ShowGrid = false; // 网格开关
 
         public XMapFrame(RectangleF bounds, List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
@@ -65,131 +59,87 @@ namespace XGIS
             this.Name = "Map Frame";
             this.Layers = layers;
             this.BaseLayer = baseLayer;
-            // 初始化时给一个临时的大小
             this.FrameView = new XView(new XExtent(currentExtent), new Rectangle(0, 0, 1, 1));
         }
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            // 1. 计算地图框在屏幕上的实际位置和大小
             RectangleF screenRectF = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
-            // 转为整数矩形
             Rectangle screenRect = new Rectangle((int)screenRectF.X, (int)screenRectF.Y, (int)screenRectF.Width, (int)screenRectF.Height);
 
-            // 2. 【核心修复】更新视图窗口
-            // 注意：这里我们告诉 FrameView，你的窗口是从 (0,0) 开始的，宽即宽，高即高。
-            // 这样 FrameView 计算出来的坐标就是相对于框左上角的相对坐标。
+            // 更新视图窗口大小
             FrameView.UpdateMapWindow(new Rectangle(0, 0, screenRect.Width, screenRect.Height));
 
-            // 3. 保存当前的绘图状态 (Clip 和 Transform)
+            // 保存状态
             Region oldClip = g.Clip;
             System.Drawing.Drawing2D.Matrix oldTransform = g.Transform;
 
-            // 4. 设置裁切区域 (防止画出框外)
+            // 设置裁剪和平移
             g.SetClip(screenRect);
-
-            // 5. 【核心修复】设置坐标平移
-            // 所有的绘图指令都会自动加上 (screenRect.X, screenRect.Y)
             g.TranslateTransform(screenRect.X, screenRect.Y);
-
-            // 6. 绘制背景 (相对于框的 0,0)
             g.FillRectangle(Brushes.White, 0, 0, screenRect.Width, screenRect.Height);
 
-            // 7. 绘制图层
-            // 因为已经做了 TranslateTransform，这里画图时，Engine 算出的 (0,0) 会被画在屏幕的 (screenRect.X, screenRect.Y)
+            // 绘制底图
             if (BaseLayer != null && BaseLayer.Visible)
             {
                 BaseLayer.Draw(g, FrameView);
             }
 
+            // 绘制矢量图层
             if (Layers != null)
             {
-                // 倒序绘制
                 for (int i = Layers.Count - 1; i >= 0; i--)
                 {
-                    if (Layers[i].Visible)
-                        Layers[i].draw(g, FrameView);
+                    if (Layers[i].Visible) Layers[i].draw(g, FrameView);
                 }
             }
 
-            // 8. 恢复绘图状态 (非常重要！否则后面的元素位置会乱)
+            // 【新增】绘制经纬网
+            if (ShowGrid)
+            {
+                DrawGrid(g, screenRect.Width, screenRect.Height);
+            }
+
+            // 恢复状态
             g.Transform = oldTransform;
             g.Clip = oldClip;
 
-            // 9. 绘制边框和选中框 (这部分是在 Layout 坐标系下的，所以恢复 Transform 后再画)
+            // 绘制边框和选中框
             g.DrawRectangle(Pens.Black, screenRect);
             DrawSelectionBox(g, screenRectF);
         }
-    }
 
-    // 3. 文本元素 (Title)
-    public class XTextElement : XLayoutElement
-    {
-        public string Text = "地图标题";
-        public Font Font = new Font("微软雅黑", 24, FontStyle.Bold);
-        public SolidBrush Brush = new SolidBrush(Color.Black);
-
-        public XTextElement(string text, float x, float y)
+        private void DrawGrid(Graphics g, float w, float h)
         {
-            this.Name = "Text";
-            this.Text = text;
-            this.Bounds = new RectangleF(x, y, 100, 20); // 初始大小，后面可以根据文字自动算
-        }
-
-        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
-        {
-            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
-
-            // 简单的文字绘制
-            // 注意：字体大小通常是 Point，不需要手动乘缩放，Graphics 会处理，或者手动计算
-            // 为了所见即所得，最好创建一个缩放后的 Font
-            Font drawFont = new Font(Font.FontFamily, Font.Size * zoomScale, Font.Style);
-
-            g.DrawString(Text, drawFont, Brush, screenRect.Location);
-
-            // 更新一下 Bounds 的宽高，方便点击选中
-            SizeF size = g.MeasureString(Text, drawFont);
-            // 这里要反算回毫米，暂时先略过，只做简单的显示
-
-            DrawSelectionBox(g, new RectangleF(screenRect.X, screenRect.Y, size.Width, size.Height));
-        }
-    }
-
-    // 4. 布局页面管理类
-    public class XLayoutPage
-    {
-        public float WidthMM = 297; // A4 横向
-        public float HeightMM = 210;
-        public List<XLayoutElement> Elements = new List<XLayoutElement>();
-
-        public void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
-        {
-            // 1. 画纸张阴影 (好看一点)
-            float pixelPerMM = screenDpi / 25.4f;
-            float w = WidthMM * pixelPerMM * zoomScale;
-            float h = HeightMM * pixelPerMM * zoomScale;
-            g.FillRectangle(Brushes.Gray, offsetX + 5, offsetY + 5, w, h);
-
-            // 2. 画纸张本身
-            g.FillRectangle(Brushes.White, offsetX, offsetY, w, h);
-            g.DrawRectangle(Pens.Black, offsetX, offsetY, w, h);
-
-            // 3. 画所有元素
-            foreach (var ele in Elements)
+            // 简单的经纬网示意绘制
+            using (Pen p = new Pen(Color.Gray, 1) { DashStyle = DashStyle.Dot })
+            using (Font f = new Font("Arial", 8))
+            using (SolidBrush b = new SolidBrush(Color.Black))
             {
-                ele.Draw(g, screenDpi, zoomScale, offsetX, offsetY);
+                int count = 4;
+                // 竖线 (经度)
+                for (int i = 1; i < count; i++)
+                {
+                    float x = w * i / count;
+                    g.DrawLine(p, x, 0, x, h);
+                    g.DrawString($"E{120 + i}°", f, b, x - 10, h - 15);
+                }
+                // 横线 (纬度)
+                for (int i = 1; i < count; i++)
+                {
+                    float y = h * i / count;
+                    g.DrawLine(p, 0, y, w, y);
+                    g.DrawString($"N{30 + i}°", f, b, 2, y - 6);
+                }
             }
         }
     }
-    // 1. 指北针样式枚举
-    public enum NorthArrowStyle
-    {
-        Simple, // 简单箭头
-        Circle, // 带圆圈
-        Star    // 四角星
-    }
 
-    // 2. 指北针元素类
+    // ==========================================
+    // 3. 指北针
+    // ==========================================
+    public enum NorthArrowStyle { Simple, Circle, Star }
+
     public class XNorthArrow : XLayoutElement
     {
         public NorthArrowStyle Style = NorthArrowStyle.Simple;
@@ -203,57 +153,167 @@ namespace XGIS
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            // 1. 计算屏幕位置
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
-
-            // 2. 保存状态
             var state = g.Save();
 
-            // 3. 坐标系变换：移动到中心 -> 缩放 -> 绘图
             float centerX = screenRect.X + screenRect.Width / 2;
             float centerY = screenRect.Y + screenRect.Height / 2;
             g.TranslateTransform(centerX, centerY);
 
-            // 假设标准绘图尺寸是 100x100，计算缩放比例
             float size = Math.Min(screenRect.Width, screenRect.Height);
             float scale = size / 100f;
             g.ScaleTransform(scale, scale);
 
-            // 4. 根据样式绘图 (坐标系已经是中心为0,0，范围约 -50 到 50)
             using (Pen p = new Pen(Color.Black, 2))
             using (SolidBrush b = new SolidBrush(Color.Black))
             {
                 switch (Style)
                 {
                     case NorthArrowStyle.Simple:
-                        g.DrawLine(p, 0, 40, 0, -40); // 竖线
-                        g.DrawLine(p, 0, -40, -15, -10); // 左翼
-                        g.DrawLine(p, 0, -40, 15, -10);  // 右翼
+                        g.DrawLine(p, 0, 40, 0, -40);
+                        g.DrawLine(p, 0, -40, -15, -10);
+                        g.DrawLine(p, 0, -40, 15, -10);
                         g.DrawString("N", new Font("Arial", 20, FontStyle.Bold), b, -12, -75);
                         break;
-
                     case NorthArrowStyle.Circle:
                         g.DrawEllipse(p, -45, -45, 90, 90);
-                        PointF[] pts = { new PointF(0, -40), new PointF(15, 10), new PointF(0, 0), new PointF(-15, 10) };
-                        g.FillPolygon(b, pts);
+                        g.FillPolygon(b, new PointF[] { new PointF(0, -40), new PointF(15, 10), new PointF(0, 0), new PointF(-15, 10) });
                         g.DrawString("N", new Font("Times New Roman", 16, FontStyle.Bold), b, -10, -70);
                         break;
-
                     case NorthArrowStyle.Star:
                         PointF[] star = { new PointF(0,-50), new PointF(10,-10), new PointF(50,0), new PointF(10,10),
                                           new PointF(0,50), new PointF(-10,10), new PointF(-50,0), new PointF(-10,-10)};
                         g.FillPolygon(b, star);
-                        g.DrawPolygon(Pens.Black, star); // 描边
+                        g.DrawPolygon(Pens.Black, star);
                         g.DrawString("N", new Font("Arial", 14, FontStyle.Bold), b, -10, -75);
                         break;
                 }
             }
-
-            // 5. 恢复状态
             g.Restore(state);
-
-            // 6. 画选中框
             DrawSelectionBox(g, screenRect);
+        }
+    }
+
+    // ==========================================
+    // 4. 比例尺
+    // ==========================================
+    public enum ScaleBarStyle { Line, AlternatingBar, DoubleLine }
+
+    public class XScaleBar : XLayoutElement
+    {
+        public ScaleBarStyle Style = ScaleBarStyle.Line;
+
+        public XScaleBar(RectangleF bounds, ScaleBarStyle style)
+        {
+            this.Bounds = bounds;
+            this.Style = style;
+            this.Name = "比例尺";
+        }
+
+        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+
+            // 绘制逻辑
+            using (Pen p = new Pen(Color.Black, 2))
+            using (SolidBrush bBlack = new SolidBrush(Color.Black))
+            using (SolidBrush bWhite = new SolidBrush(Color.White))
+            using (Font f = new Font("Arial", 10 * zoomScale))
+            {
+                float x = screenRect.X;
+                float y = screenRect.Y;
+                float w = screenRect.Width;
+                float h = screenRect.Height;
+
+                switch (Style)
+                {
+                    case ScaleBarStyle.Line:
+                        float midY = y + h / 2;
+                        g.DrawLine(p, x, midY, x + w, midY);
+                        g.DrawLine(p, x, midY, x, midY - 5);
+                        g.DrawLine(p, x + w / 2, midY, x + w / 2, midY - 5);
+                        g.DrawLine(p, x + w, midY, x + w, midY - 5);
+                        g.DrawString("0", f, bBlack, x - 5, midY + 2);
+                        g.DrawString("500 km", f, bBlack, x + w - 30, midY + 2);
+                        break;
+
+                    case ScaleBarStyle.AlternatingBar:
+                        float barH = h / 3;
+                        RectangleF r1 = new RectangleF(x, y + barH, w / 4, barH);
+                        RectangleF r2 = new RectangleF(x + w / 4, y + barH, w / 4, barH);
+                        RectangleF r3 = new RectangleF(x + 2 * w / 4, y + barH, w / 4, barH);
+                        RectangleF r4 = new RectangleF(x + 3 * w / 4, y + barH, w / 4, barH);
+                        g.FillRectangle(bBlack, r1);
+                        g.FillRectangle(bWhite, r2); g.DrawRectangle(p, r2.X, r2.Y, r2.Width, r2.Height);
+                        g.FillRectangle(bBlack, r3);
+                        g.FillRectangle(bWhite, r4); g.DrawRectangle(p, r4.X, r4.Y, r4.Width, r4.Height);
+                        g.DrawString("0", f, bBlack, x, y + barH * 2);
+                        g.DrawString("100 km", f, bBlack, x + w - 40, y + barH * 2);
+                        break;
+
+                    case ScaleBarStyle.DoubleLine:
+                        float dY = y + h / 2;
+                        g.DrawRectangle(p, x, dY - 3, w, 6);
+                        g.FillRectangle(bBlack, x, dY - 3, w / 2, 6);
+                        g.DrawString("1:10,000", f, bBlack, x, dY - 20);
+                        break;
+                }
+            }
+            DrawSelectionBox(g, screenRect);
+        }
+    }
+
+    // ==========================================
+    // 5. 文本元素
+    // ==========================================
+    public class XTextElement : XLayoutElement
+    {
+        public string Text = "地图标题";
+        public Font Font = new Font("微软雅黑", 24, FontStyle.Bold);
+        public SolidBrush Brush = new SolidBrush(Color.Black);
+
+        public XTextElement(string text, float x, float y)
+        {
+            this.Name = "Text";
+            this.Text = text;
+            this.Bounds = new RectangleF(x, y, 100, 20);
+        }
+
+        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+            Font drawFont = new Font(Font.FontFamily, Font.Size * zoomScale, Font.Style);
+            g.DrawString(Text, drawFont, Brush, screenRect.Location);
+            SizeF size = g.MeasureString(Text, drawFont);
+            DrawSelectionBox(g, new RectangleF(screenRect.X, screenRect.Y, size.Width, size.Height));
+        }
+    }
+
+    // ==========================================
+    // 6. 布局页面管理
+    // ==========================================
+    public class XLayoutPage
+    {
+        public float WidthMM = 297; // A4
+        public float HeightMM = 210;
+        public List<XLayoutElement> Elements = new List<XLayoutElement>();
+
+        public void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            float pixelPerMM = screenDpi / 25.4f;
+            float w = WidthMM * pixelPerMM * zoomScale;
+            float h = HeightMM * pixelPerMM * zoomScale;
+
+            // 画阴影和纸张
+            g.FillRectangle(Brushes.Gray, offsetX + 5, offsetY + 5, w, h);
+            g.FillRectangle(Brushes.White, offsetX, offsetY, w, h);
+            g.DrawRectangle(Pens.Black, offsetX, offsetY, w, h);
+
+            // 画元素
+            foreach (var ele in Elements)
+            {
+                ele.Draw(g, screenDpi, zoomScale, offsetX, offsetY);
+            }
         }
     }
 }

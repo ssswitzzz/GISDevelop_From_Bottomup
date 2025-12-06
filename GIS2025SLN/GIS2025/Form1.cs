@@ -888,6 +888,46 @@ namespace GIS2025
             if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2;
             myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Star);
         }
+        // 2. 添加比例尺按钮
+        private void btnAddScaleBar_Click(object sender, EventArgs e)
+        {
+            // 弹出菜单 (需要你在设计器添加 cmsScaleBar)
+            cmsScaleBar.Show(btnAddScaleBar, 0, btnAddScaleBar.Height);
+        }
+
+        // 绑定到 cmsScaleBar 的子项 Click 事件
+        private void tsmiScaleLine_Click(object sender, EventArgs e)
+        {
+            SwitchToLayout();
+            myLayoutControl.StartCreateScaleBar(ScaleBarStyle.Line);
+        }
+
+        private void tsmiScaleBar_Click(object sender, EventArgs e)
+        {
+            SwitchToLayout();
+            myLayoutControl.StartCreateScaleBar(ScaleBarStyle.AlternatingBar);
+        }
+
+        private void tsmiScaleDouble_Click(object sender, EventArgs e) // 双线
+        {
+            SwitchToLayout();
+            myLayoutControl.StartCreateScaleBar(ScaleBarStyle.DoubleLine);
+        }
+
+        // 3. 添加经纬网按钮
+        private void btnAddGrid_Click(object sender, EventArgs e)
+        {
+            SwitchToLayout();
+            myLayoutControl.StartToggleGrid();
+            MessageBox.Show("请点击地图框以 显示/隐藏 经纬网");
+        }
+
+        // 辅助：自动切换到 Layout 标签页
+        private void SwitchToLayout()
+        {
+            if (tabControl1.SelectedTab != tabPage2)
+                tabControl1.SelectedTab = tabPage2;
+        }
     }
 
 }
