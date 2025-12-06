@@ -34,7 +34,16 @@ namespace GIS2025
         XExploreActions baseTool = XExploreActions.pan;
         public FormMap()
         {
+            
             InitializeComponent();
+            // --- 新增代码开始 ---
+            // 确保两个控件都填满右侧面板
+            mapBox.Dock = DockStyle.Fill;
+            myLayoutControl.Dock = DockStyle.Fill;
+
+            // 默认显示地图，隐藏布局
+            mapBox.Visible = true;
+            myLayoutControl.Visible = false;
             // 1. 网络协议设置 (天地图也需要)
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
@@ -92,7 +101,7 @@ namespace GIS2025
             treeView1.DrawNode += treeView1_DrawNode;
             treeView1.MouseDown += treeView1_MouseDown; // 新增：处理点击眼睛图标
             treeView1.MouseMove += treeView1_MouseMove;
-
+            tabControl1.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
 
 
@@ -788,6 +797,62 @@ namespace GIS2025
                 DoDragDrop(treeView1.SelectedNode, DragDropEffects.Move);
             }
         }
+        private void TabControl1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // 假设你的 TabPage 名称或文本如下：
+            // tabControl1.TabPages[0] 是 "地图操作"
+            // tabControl1.TabPages[1] 是 "Layout"
 
+            // 情况 1: 切换到 Layout 界面
+            if (tabControl1.SelectedTab.Text == "Layout")
+            {
+                // 1. 显隐控制：显示 Layout，隐藏地图
+                mapBox.Visible = false;
+                myLayoutControl.Visible = true;
+
+                // 2. 收集当前需要显示的图层
+                List<XVectorLayer> visibleLayers = new List<XVectorLayer>();
+                foreach (TreeNode node in treeView1.Nodes)
+                {
+                    if (node.Checked && node.Tag is XVectorLayer layer)
+                    {
+                        visibleLayers.Add(layer);
+                    }
+                }
+
+                // 3. 获取当前的视野范围
+                XExtent currentExtent = view.CurrentMapExtent;
+                if (currentExtent == null && layers.Count > 0)
+                {
+                    currentExtent = layers[0].Extent;
+                }
+
+                // 4. 更新 Layout 数据
+                if (myLayoutControl != null)
+                {
+                    // 只有当有有效范围时才更新，防止报错
+                    if (currentExtent != null)
+                    {
+                        myLayoutControl.UpdateLayout(visibleLayers, this.basemapLayer, currentExtent);
+                    }
+                }
+            }
+            // 情况 2: 切换回 地图操作 界面
+            else
+            {
+                // 1. 显隐控制：显示地图，隐藏 Layout
+                myLayoutControl.Visible = false;
+                mapBox.Visible = true;
+
+                // 2. 关键：确保 View 的窗口大小是正确的
+                // 因为 mapBox 刚才不可见，可能导致 View 内部计算出问题，需要重新 update
+                if (mapBox.Width > 0 && mapBox.Height > 0)
+                {
+                    view.UpdateMapWindow(mapBox.ClientRectangle);
+                    UpdateMap(); // 强制重绘，防止切回来是白屏
+                }
+            }
+        }
     }
+
 }

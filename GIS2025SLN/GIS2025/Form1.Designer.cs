@@ -49,6 +49,7 @@
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -187,6 +188,7 @@
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.mapBox);
+            this.splitContainer1.Panel2.Controls.Add(this.myLayoutControl);
             this.splitContainer1.Size = new System.Drawing.Size(1706, 867);
             this.splitContainer1.SplitterDistance = 282;
             this.splitContainer1.TabIndex = 2;
@@ -229,7 +231,7 @@
             this.注记属性ToolStripMenuItem,
             this.移除图层ToolStripMenuItem});
             this.contextMenuLayer.Name = "contextMenuLayer";
-            this.contextMenuLayer.Size = new System.Drawing.Size(241, 187);
+            this.contextMenuLayer.Size = new System.Drawing.Size(171, 154);
             // 
             // 打开属性表ToolStripMenuItem
             // 
@@ -265,6 +267,14 @@
             this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
+            // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
             // 
             // FormMap
             // 
@@ -315,6 +325,7 @@
         private System.Windows.Forms.ToolStripMenuItem 打开属性表ToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem 注记属性ToolStripMenuItem;
         private System.Windows.Forms.PictureBox mapBox;
+        private LayoutControl myLayoutControl;
     }
 }
 

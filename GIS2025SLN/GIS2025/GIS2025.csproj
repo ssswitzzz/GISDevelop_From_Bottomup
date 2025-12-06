@@ -68,6 +68,13 @@
     <Compile Include="FormLabelProperty.Designer.cs">
       <DependentUpon>FormLabelProperty.cs</DependentUpon>
     </Compile>
+    <Compile Include="LayoutClasses.cs" />
+    <Compile Include="LayoutControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="LayoutControl.Designer.cs">
+      <DependentUpon>LayoutControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
@@ -78,6 +85,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FormLabelProperty.resx">
       <DependentUpon>FormLabelProperty.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LayoutControl.resx">
+      <DependentUpon>LayoutControl.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
