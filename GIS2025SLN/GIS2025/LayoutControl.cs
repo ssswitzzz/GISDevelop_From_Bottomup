@@ -17,12 +17,9 @@ namespace GIS2025
 
     public partial class LayoutControl : UserControl
     {
-        // 公开 Page 数据
         public XLayoutPage Page;
 
-        // 事件：当元素列表发生变化（添加、删除、重排序）时触发
         public event EventHandler ElementChanged;
-        // 事件：当选中状态发生变化时触发 (用于同步 TreeView 高亮)
         public event EventHandler SelectionChanged;
 
         private float zoomScale = 1.0f;
@@ -31,7 +28,7 @@ namespace GIS2025
 
         public LayoutTool CurrentTool = LayoutTool.Select;
         private XLayoutElement selectedElement = null;
-        public XLayoutElement SelectedElement => selectedElement; // 只读属性供外部查询
+        public XLayoutElement SelectedElement => selectedElement;
 
         private XMapFrame activeMapFrame = null;
 
@@ -53,6 +50,8 @@ namespace GIS2025
             this.Page = new XLayoutPage();
 
             InitContextMenu();
+
+            // 手动订阅事件，确保逻辑生效
             layoutBox.MouseWheel += LayoutBox_MouseWheel;
             layoutBox.MouseDown += LayoutBox_MouseDown;
             layoutBox.MouseMove += LayoutBox_MouseMove;
@@ -61,17 +60,9 @@ namespace GIS2025
             this.KeyDown += LayoutControl_KeyDown;
         }
 
-        private void NotifyElementChanged()
-        {
-            ElementChanged?.Invoke(this, EventArgs.Empty);
-        }
+        private void NotifyElementChanged() { ElementChanged?.Invoke(this, EventArgs.Empty); }
+        private void NotifySelectionChanged() { SelectionChanged?.Invoke(this, EventArgs.Empty); }
 
-        private void NotifySelectionChanged()
-        {
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        // 提供给 Form1 调用：从外部设置选中（同步 TreeView 点击）
         public void SelectElement(XLayoutElement ele)
         {
             selectedElement = ele;
@@ -105,7 +96,6 @@ namespace GIS2025
             _cacheLayers = layers;
             _cacheBaseLayer = baseLayer;
             _cacheExtent = currentExtent;
-            // 更新所有现有的地图框数据
             foreach (var ele in Page.Elements)
             {
                 if (ele is XMapFrame mapFrame)
@@ -132,7 +122,6 @@ namespace GIS2025
             NotifySelectionChanged();
         }
 
-        // ================= 键盘删除 =================
         private void LayoutControl_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Delete && selectedElement != null && activeMapFrame == null)
@@ -140,7 +129,7 @@ namespace GIS2025
                 Page.Elements.Remove(selectedElement);
                 selectedElement = null;
                 layoutBox.Invalidate();
-                NotifyElementChanged(); // 通知 Form1 更新树
+                NotifyElementChanged();
             }
         }
 
@@ -177,7 +166,7 @@ namespace GIS2025
                 {
                     CurrentTool = LayoutTool.Select;
                     originalBounds = selectedElement.Bounds;
-                    NotifySelectionChanged(); // 通知 Form1 选中树节点
+                    NotifySelectionChanged();
                 }
                 else
                 {
@@ -260,8 +249,8 @@ namespace GIS2025
                 CurrentTool = LayoutTool.Select;
                 layoutBox.Cursor = Cursors.Default;
                 layoutBox.Invalidate();
-                NotifyElementChanged(); // 通知树结构变化
-                NotifySelectionChanged(); // 通知选中变化
+                NotifyElementChanged();
+                NotifySelectionChanged();
             };
 
             if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
@@ -340,19 +329,37 @@ namespace GIS2025
             DrawRulers(e.Graphics, dpi, zoomScale, offsetX, offsetY);
         }
 
-        // ================= 辅助函数区 (保持精简) =================
+        // ================= 辅助函数区 =================
+        // 【核心修改】修复后的缩放逻辑，以鼠标为中心
         private void LayoutBox_MouseWheel(object sender, MouseEventArgs e)
         {
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
+
             if (activeMapFrame != null)
             {
+                // 1. 计算 MapFrame 在屏幕上的像素区域
+                RectangleF screenRectF = MMToPixelRect(activeMapFrame.Bounds, dpi);
+
+                // 2. 计算鼠标相对于 MapFrame 的局部坐标
+                int localX = (int)(e.X - screenRectF.X);
+                int localY = (int)(e.Y - screenRectF.Y);
+
+                // 3. 更新 View 窗口大小
+                activeMapFrame.FrameView.UpdateMapWindow(new Rectangle(0, 0, (int)screenRectF.Width, (int)screenRectF.Height));
+
+                // 4. 获取鼠标指针对应的地理坐标
+                XVertex anchor = activeMapFrame.FrameView.ToMapVertex(new Point(localX, localY));
+
+                // 5. 执行缩放 (以锚点为中心)
                 bool isZoomIn = e.Delta > 0;
-                XVertex center = activeMapFrame.FrameView.ToMapVertex(e.Location);
-                activeMapFrame.FrameView.CurrentMapExtent.ZoomToCenter(center, isZoomIn ? 1.1 : 0.9);
+                double ratio = isZoomIn ? 1.1 : (1.0 / 1.1);
+                activeMapFrame.FrameView.CurrentMapExtent.ZoomToCenter(anchor, ratio);
+
                 layoutBox.Invalidate();
             }
             else
             {
+                // 布局纸张缩放
                 float mouseX_World = (e.X - offsetX) / zoomScale;
                 float mouseY_World = (e.Y - offsetY) / zoomScale;
                 if (e.Delta > 0) zoomScale *= 1.1f; else zoomScale /= 1.1f;
@@ -435,7 +442,6 @@ namespace GIS2025
 
         private bool CheckHitElement(Point mouse, float pixelPerMM)
         {
-            // 倒序检测，优先选中最上面的
             for (int i = Page.Elements.Count - 1; i >= 0; i--)
             {
                 float x = Page.Elements[i].Bounds.X * pixelPerMM * zoomScale + offsetX;

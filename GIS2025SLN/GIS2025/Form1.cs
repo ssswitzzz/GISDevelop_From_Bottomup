@@ -13,26 +13,35 @@ namespace GIS2025
 {
     public partial class FormMap : Form
     {
+        // ==========================================
         // 核心数据
+        // ==========================================
         List<XVectorLayer> layers = new List<XVectorLayer>();
         XView view = null;
         Bitmap backwindow;
 
+        // ==========================================
         // 资源与工具
+        // ==========================================
         Bitmap iconEyeOpen, iconEyeClose;
         XTileLayer basemapLayer;
         Timer timerDownloadCheck = new Timer();
         Timer timerZoom = new Timer();
 
+        // ==========================================
         // 鼠标交互状态
+        // ==========================================
         Point MouseDownLocation, MouseMovingLocation;
         XExploreActions currentMouseAction = XExploreActions.noaction;
         XExploreActions baseTool = XExploreActions.pan;
 
-        // Layout 相关变量
+        // ==========================================
+        // Layout 相关变量 (新增)
+        // ==========================================
+        // 专门用于 Layout 视图的图层树，与 Map 视图分离
         private TreeView treeViewLayout;
         private TreeNode dropTargetNode = null;
-        Point TreeMouseDownLocation;
+        Point TreeMouseDownLocation; // 记录树控件点击位置，用于判断拖拽
 
         public FormMap()
         {
@@ -89,11 +98,13 @@ namespace GIS2025
             treeView1.MouseMove += treeView1_MouseMove;
             treeView1.AfterCheck += treeView1_AfterCheck;
 
-            // 7. 布局控件相关
+            // 7. 布局控件相关初始化
             tabControl1.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
-            // 初始化 Layout TreeView，并绑定事件监听
+            // 【核心】初始化 Layout 树
             InitLayoutTreeView();
+
+            // 绑定 LayoutControl 的事件，实现双向同步
             myLayoutControl.ElementChanged += (s, e) => { PopulateLayoutTree(); };
             myLayoutControl.SelectionChanged += (s, e) => { UpdateLayoutTreeSelection(); };
 
@@ -102,10 +113,11 @@ namespace GIS2025
         }
 
         // ==========================================
-        // 【核心修改】Layout TreeView 逻辑
+        // 【核心部分】Layout TreeView 逻辑
         // ==========================================
         private void InitLayoutTreeView()
         {
+            // 1. 动态创建一个新树
             treeViewLayout = new TreeView();
             treeViewLayout.Dock = DockStyle.Fill;
             treeViewLayout.DrawMode = TreeViewDrawMode.OwnerDrawAll;
@@ -113,42 +125,49 @@ namespace GIS2025
             treeViewLayout.Visible = false; // 初始隐藏
             treeViewLayout.CheckBoxes = false; // 自绘眼睛
             treeViewLayout.AllowDrop = true;   // 开启拖拽
-            treeViewLayout.HideSelection = false; // 失去焦点时依然保持选中高亮
+            treeViewLayout.HideSelection = false; // 失去焦点依然高亮
 
+            // 2. 将其添加到界面 (覆盖在 treeView1 上面)
             if (treeView1.Parent != null)
             {
                 treeView1.Parent.Controls.Add(treeViewLayout);
                 treeViewLayout.BringToFront();
             }
 
-            // 绑定 Layout 树专用事件
-            treeViewLayout.DrawNode += treeView1_DrawNode; // 复用绘制逻辑(画眼睛和背景)
-            treeViewLayout.MouseDown += TreeViewLayout_MouseDown; // 专门处理 Layout 下的点击
+            // 3. 【重点】手动订阅事件
+
+            // 复用绘制逻辑(画眼睛和背景)
+            treeViewLayout.DrawNode += treeView1_DrawNode;
+
+            // 专门处理点击 (实现整行选中、开关显隐、右键)
+            treeViewLayout.MouseDown += TreeViewLayout_MouseDown;
+
+            // 【关键】专门处理移动 (实现整行拖拽)
+            treeViewLayout.MouseMove += TreeViewLayout_MouseMove;
+
+            // 拖拽相关
             treeViewLayout.ItemDrag += (s, e) => { DoDragDrop(e.Item, DragDropEffects.Move); };
             treeViewLayout.DragEnter += (s, e) => { e.Effect = DragDropEffects.Move; };
             treeViewLayout.DragOver += TreeViewLayout_DragOver;
             treeViewLayout.DragDrop += TreeViewLayout_DragDrop;
         }
 
-        // 【关键】刷新 Layout 树 (根据 Page.Elements 生成)
+        // 刷新 Layout 树 (根据 Page.Elements 生成)
         private void PopulateLayoutTree()
         {
             treeViewLayout.BeginUpdate();
             treeViewLayout.Nodes.Clear();
 
-            // 注意：Elements 列表索引 0 是最底层（先画），索引 Count-1 是最顶层（后画）。
-            // 在 TreeView 里，我们通常习惯把“顶层”的图层放在最上面。
-            // 所以这里我们需要【倒序】遍历 Elements 添加到 TreeView。
+            // 倒序遍历，保证顶层元素在树的最上方
             var elements = myLayoutControl.Page.Elements;
             for (int i = elements.Count - 1; i >= 0; i--)
             {
                 XLayoutElement ele = elements[i];
                 TreeNode node = new TreeNode(ele.Name);
                 node.Tag = ele;
-                node.Checked = ele.Visible; // 用 Checked 状态来存显隐
+                node.Checked = ele.Visible; // Checked 借用来存显隐状态
                 treeViewLayout.Nodes.Add(node);
 
-                // 如果该元素当前被选中，树节点也要选中
                 if (ele.IsSelected)
                 {
                     treeViewLayout.SelectedNode = node;
@@ -157,17 +176,15 @@ namespace GIS2025
             treeViewLayout.EndUpdate();
         }
 
-        // 单独更新树的选中状态 (不重建树)
+        // 仅更新树的选中状态
         private void UpdateLayoutTreeSelection()
         {
-            // 找到 Tag 等于 myLayoutControl.SelectedElement 的节点
             var selectedEle = myLayoutControl.SelectedElement;
             if (selectedEle == null)
             {
                 treeViewLayout.SelectedNode = null;
                 return;
             }
-
             foreach (TreeNode node in treeViewLayout.Nodes)
             {
                 if (node.Tag == selectedEle)
@@ -178,58 +195,75 @@ namespace GIS2025
             }
         }
 
-        // Layout 树点击事件 (处理开关、选中、右键)
+        // Layout 树点击事件
         private void TreeViewLayout_MouseDown(object sender, MouseEventArgs e)
         {
-            TreeViewHitTestInfo info = treeViewLayout.HitTest(e.Location);
-            if (info.Node == null) return;
-            TreeNode node = info.Node;
+            // 【技巧】使用 (0, e.Y) 强制获取当前行，不管点的是字还是空白
+            TreeNode node = treeViewLayout.GetNodeAt(0, e.Y);
+            if (node == null) return;
+
             XLayoutElement ele = node.Tag as XLayoutElement;
             if (ele == null) return;
 
-            // 左键点击
+            // 记录位置供 MouseMove 拖拽判断
+            TreeMouseDownLocation = e.Location;
+
             if (e.Button == MouseButtons.Left)
             {
-                // 1. 检查是否点击了眼睛图标
-                int diff = e.X - node.Bounds.X;
-                if (diff >= 0 && diff <= 24)
+                // 1. 判断是否点击眼睛 (假设眼睛区域在文字左侧 30px 内)
+                if (e.X < node.Bounds.X)
                 {
                     node.Checked = !node.Checked;
-                    ele.Visible = node.Checked; // 同步数据
+                    ele.Visible = node.Checked; // 同步 Visible
+
                     treeViewLayout.Invalidate();
-                    myLayoutControl.Invalidate(); // 刷新 Layout 画布
+                    myLayoutControl.Invalidate(); // 刷新画布
                     return;
                 }
 
-                // 2. 普通选择：双向同步
+                // 2. 整行选中
                 treeViewLayout.SelectedNode = node;
-                myLayoutControl.SelectElement(ele); // 通知 LayoutControl 选中该元素
+                myLayoutControl.SelectElement(ele); // 通知画布选中
             }
-            // 右键点击
             else if (e.Button == MouseButtons.Right)
             {
                 treeViewLayout.SelectedNode = node;
-                myLayoutControl.SelectElement(ele); // 右键也要选中
+                myLayoutControl.SelectElement(ele);
 
-                // 创建 Layout 树专用的右键菜单
+                // 右键菜单
                 ContextMenuStrip cms = new ContextMenuStrip();
                 cms.Items.Add("删除元素", null, (s, args) => {
                     myLayoutControl.Page.Elements.Remove(ele);
                     myLayoutControl.Invalidate();
-                    PopulateLayoutTree(); // 刷新树
+                    PopulateLayoutTree();
                 });
-
-                // 如果是 MapFrame，可以加个“属性”
                 if (ele is XMapFrame)
                 {
-                    cms.Items.Add("属性...", null, (s, args) => { MessageBox.Show("地图框属性功能开发中..."); });
+                    cms.Items.Add("属性...", null, (s, args) => { MessageBox.Show("地图框属性功能..."); });
                 }
-
                 cms.Show(treeViewLayout, e.Location);
             }
         }
 
-        // Layout 树拖拽悬停
+        // 【关键新增】Layout 树鼠标移动事件 (手动触发拖拽)
+        private void TreeViewLayout_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || treeViewLayout.SelectedNode == null) return;
+
+            // 判断拖拽距离阈值
+            Size dragSize = SystemInformation.DragSize;
+            Rectangle dragRect = new Rectangle(
+                new Point(TreeMouseDownLocation.X - dragSize.Width / 2, TreeMouseDownLocation.Y - dragSize.Height / 2),
+                dragSize);
+
+            // 如果鼠标移出了阈值区域，则开始拖拽
+            if (!dragRect.Contains(e.Location))
+            {
+                // 手动启动 DragDrop，这样点整行任意位置都能拖
+                DoDragDrop(treeViewLayout.SelectedNode, DragDropEffects.Move);
+            }
+        }
+
         private void TreeViewLayout_DragOver(object sender, DragEventArgs e)
         {
             Point pt = treeViewLayout.PointToClient(new Point(e.X, e.Y));
@@ -252,9 +286,8 @@ namespace GIS2025
             dropTargetNode = null;
             treeViewLayout.Invalidate();
 
-            if (srcNode == null || srcNode.TreeView != treeViewLayout) return; // 只允许 Layout 内部拖拽
+            if (srcNode == null || srcNode.TreeView != treeViewLayout) return;
 
-            // 调整 TreeView 节点顺序
             if (targetNode == null)
             {
                 treeViewLayout.Nodes.Remove(srcNode);
@@ -267,24 +300,15 @@ namespace GIS2025
             }
             treeViewLayout.SelectedNode = srcNode;
 
-            // =============================================
-            // 【核心同步】根据 TreeView 顺序重构 Page.Elements 列表
-            // =============================================
-
-            // 记住：TreeView 最上面的节点 (Index 0) 应该是 Elements 列表的【最后一个】(最顶层)。
-            // 所以我们要倒序把 TreeView 的 Tag 塞回 List。
-
+            // 根据 TreeView 顺序重构 Elements 列表
             myLayoutControl.Page.Elements.Clear();
+            // 倒序：Tree Top -> Element List Last (Top Layer)
             for (int i = treeViewLayout.Nodes.Count - 1; i >= 0; i--)
             {
                 XLayoutElement ele = treeViewLayout.Nodes[i].Tag as XLayoutElement;
-                if (ele != null)
-                {
-                    myLayoutControl.Page.Elements.Add(ele);
-                }
+                if (ele != null) myLayoutControl.Page.Elements.Add(ele);
             }
 
-            // 刷新 Layout 画布
             myLayoutControl.Invalidate();
         }
 
@@ -295,14 +319,13 @@ namespace GIS2025
         {
             if (tabControl1.SelectedTab.Text == "Layout")
             {
-                // 1. 显隐控制
+                // 切换到 Layout
                 mapBox.Visible = false;
                 myLayoutControl.Visible = true;
-
                 treeView1.Visible = false;
-                treeViewLayout.Visible = true; // 显示 Layout 专用树
+                treeViewLayout.Visible = true;
 
-                // 2. 更新 LayoutControl 数据
+                // 更新 LayoutControl 数据
                 XExtent currentExtent = view.CurrentMapExtent;
                 if (currentExtent == null && layers.Count > 0) currentExtent = layers[0].Extent;
 
@@ -311,18 +334,16 @@ namespace GIS2025
                     myLayoutControl.UpdateLayout(layers, this.basemapLayer, currentExtent);
                 }
 
-                // 3. 刷新 Layout 树
                 PopulateLayoutTree();
             }
-            else // 切换回 Map
+            else
             {
+                // 切换回 Map
                 myLayoutControl.Visible = false;
                 mapBox.Visible = true;
-
                 treeViewLayout.Visible = false;
                 treeView1.Visible = true;
 
-                // 刷新 Map 视图
                 if (mapBox.Width > 0 && mapBox.Height > 0)
                 {
                     view.UpdateMapWindow(mapBox.ClientRectangle);
@@ -331,6 +352,9 @@ namespace GIS2025
             }
         }
 
+        // ==========================================
+        // Map 视图原有逻辑 (保持不变)
+        // ==========================================
         private void UpdateSelectionStatus()
         {
             int totalCount = 0;
@@ -349,7 +373,6 @@ namespace GIS2025
             Graphics g = Graphics.FromImage(backwindow);
             g.Clear(Color.White);
 
-            // 倒序绘制：树的下面先画，上面的后画（盖在上面）
             for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
             {
                 TreeNode node = treeView1.Nodes[i];
@@ -480,7 +503,6 @@ namespace GIS2025
         }
 
         private void explore_button_Click(object sender, EventArgs e) { baseTool = XExploreActions.pan; currentMouseAction = XExploreActions.noaction; mapBox.Cursor = Cursors.Hand; }
-
         private void btnSelect_Click(object sender, EventArgs e) { baseTool = XExploreActions.select; currentMouseAction = XExploreActions.noaction; mapBox.Cursor = Cursors.Default; }
 
         private void button_ReadShp_Click(object sender, EventArgs e)
@@ -497,6 +519,7 @@ namespace GIS2025
             UpdateMap();
         }
 
+        // 布局工具按钮事件
         private void btnAddMapFrame_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartCreateMapFrame(); }
         private void btnAddNorthArrow_Click(object sender, EventArgs e) { cmsNorthArrow.Show(btnAddNorthArrow, 0, btnAddNorthArrow.Height); }
         private void toolStripMenuItemSimple_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Simple); }
@@ -509,10 +532,7 @@ namespace GIS2025
         private void btnAddGrid_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartToggleGrid(); MessageBox.Show("请点击地图框以 显示/隐藏 经纬网"); }
         private void SwitchToLayout() { if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2; }
 
-        private void treeView1_ItemDrag(object sender, ItemDragEventArgs e) { currentMouseAction = XExploreActions.noaction; DoDragDrop(e.Item, DragDropEffects.Move); }
-        private void treeView1_DragEnter(object sender, DragEventArgs e) { e.Effect = DragDropEffects.Move; }
-        private void treeView1_AfterCheck(object sender, TreeViewEventArgs e) { UpdateMap(); }
-
+        // treeView1 的绘制和事件 (Layout树也复用了一部分)
         private void treeView1_DrawNode(object sender, DrawTreeNodeEventArgs e)
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -526,7 +546,6 @@ namespace GIS2025
             Rectangle textRect = new Rectangle(e.Bounds.X + 30, e.Bounds.Y, e.Bounds.Width - 30, e.Bounds.Height);
             TextRenderer.DrawText(e.Graphics, e.Node.Text, ((TreeView)sender).Font, textRect, Color.Black, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
 
-            // 检查 sender 是否为当前绘制的控件的 dropTargetNode
             TreeNode target = (sender == treeView1) ? dropTargetNode : (sender == treeViewLayout ? dropTargetNode : null);
             if (target != null && e.Node == target)
             {
@@ -534,6 +553,10 @@ namespace GIS2025
                     e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Top, e.Bounds.Right, e.Bounds.Top);
             }
         }
+
+        private void treeView1_ItemDrag(object sender, ItemDragEventArgs e) { currentMouseAction = XExploreActions.noaction; DoDragDrop(e.Item, DragDropEffects.Move); }
+        private void treeView1_DragEnter(object sender, DragEventArgs e) { e.Effect = DragDropEffects.Move; }
+        private void treeView1_AfterCheck(object sender, TreeViewEventArgs e) { UpdateMap(); }
 
         private void treeView1_DragOver(object sender, DragEventArgs e)
         {
@@ -554,13 +577,11 @@ namespace GIS2025
             else if (targetNode != srcNode) { treeView1.Nodes.Remove(srcNode); treeView1.Nodes.Insert(targetNode.Index, srcNode); }
             treeView1.SelectedNode = srcNode;
 
-            // 同步 layer 列表顺序
             layers.Clear();
             for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
             {
                 if (treeView1.Nodes[i].Tag is XVectorLayer vl) layers.Add(vl);
             }
-
             UpdateMap();
         }
 
@@ -602,44 +623,55 @@ namespace GIS2025
             if (!dragRect.Contains(e.Location)) DoDragDrop(treeView1.SelectedNode, DragDropEffects.Move);
         }
 
-        // 菜单功能
+        // 右键菜单
         private void 注记ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            XVectorLayer l = treeView1.SelectedNode?.Tag as XVectorLayer;
-            if (l != null) { l.LabelOrNot = !l.LabelOrNot; UpdateMap(); }
+            XVectorLayer l = null;
+            if (tabControl1.SelectedTab.Text == "Layout" && treeViewLayout.SelectedNode != null) l = treeViewLayout.SelectedNode.Tag as XVectorLayer;
+            else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
+            if (l != null) { l.LabelOrNot = !l.LabelOrNot; UpdateMap(); myLayoutControl.Invalidate(); }
         }
 
         private void 注记属性ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            XVectorLayer l = treeView1.SelectedNode?.Tag as XVectorLayer;
-            if (l != null) { if (new FormLabelProperty(l).ShowDialog() == DialogResult.OK) UpdateMap(); }
+            XVectorLayer l = null;
+            if (tabControl1.SelectedTab.Text == "Layout" && treeViewLayout.SelectedNode != null) l = treeViewLayout.SelectedNode.Tag as XVectorLayer;
+            else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
+            if (l != null) { if (new FormLabelProperty(l).ShowDialog() == DialogResult.OK) { UpdateMap(); myLayoutControl.Invalidate(); } }
         }
 
         private void 移除图层ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            XVectorLayer l = treeView1.SelectedNode?.Tag as XVectorLayer;
+            XVectorLayer l = null;
+            TreeNode nodeToRemove = null;
+
+            if (tabControl1.SelectedTab.Text == "Layout") { nodeToRemove = treeViewLayout.SelectedNode; l = nodeToRemove?.Tag as XVectorLayer; }
+            else { nodeToRemove = treeView1.SelectedNode; l = nodeToRemove?.Tag as XVectorLayer; }
+
             if (l != null && MessageBox.Show("移除?", "Confirm", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
                 layers.Remove(l);
                 foreach (TreeNode n in treeView1.Nodes) { if (n.Tag == l) { treeView1.Nodes.Remove(n); break; } }
+                if (tabControl1.SelectedTab.Text == "Layout") treeViewLayout.Nodes.Remove(nodeToRemove);
                 UpdateMap();
                 UpdateSelectionStatus();
+                myLayoutControl.Invalidate();
             }
         }
 
         private void 缩放至图层ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            XVectorLayer l = treeView1.SelectedNode?.Tag as XVectorLayer;
-            if (l != null && l.Extent != null)
-            {
-                view.Update(l.Extent, mapBox.ClientRectangle);
-                UpdateMap();
-            }
+            XVectorLayer l = null;
+            if (tabControl1.SelectedTab.Text == "Layout" && treeViewLayout.SelectedNode != null) l = treeViewLayout.SelectedNode.Tag as XVectorLayer;
+            else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
+            if (l != null && l.Extent != null) { view.Update(l.Extent, mapBox.ClientRectangle); UpdateMap(); myLayoutControl.Invalidate(); }
         }
 
         private void 打开属性表ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            XVectorLayer l = treeView1.SelectedNode?.Tag as XVectorLayer;
+            XVectorLayer l = null;
+            if (tabControl1.SelectedTab.Text == "Layout" && treeViewLayout.SelectedNode != null) l = treeViewLayout.SelectedNode.Tag as XVectorLayer;
+            else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
             if (l != null) new FormAttribute(l).Show();
         }
     }
