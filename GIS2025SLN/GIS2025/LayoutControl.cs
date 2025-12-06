@@ -17,11 +17,13 @@ namespace GIS2025
 
     public partial class LayoutControl : UserControl
     {
-        // 【核心修改】将 Page 设为 Public，供 Form1 读取
+        // 公开 Page 数据
         public XLayoutPage Page;
 
-        // 【核心修改】添加事件，通知 Form1 内容变了
+        // 事件：当元素列表发生变化（添加、删除、重排序）时触发
         public event EventHandler ElementChanged;
+        // 事件：当选中状态发生变化时触发 (用于同步 TreeView 高亮)
+        public event EventHandler SelectionChanged;
 
         private float zoomScale = 1.0f;
         private float offsetX = 40;
@@ -29,6 +31,8 @@ namespace GIS2025
 
         public LayoutTool CurrentTool = LayoutTool.Select;
         private XLayoutElement selectedElement = null;
+        public XLayoutElement SelectedElement => selectedElement; // 只读属性供外部查询
+
         private XMapFrame activeMapFrame = null;
 
         private Point mouseDownLoc;
@@ -46,7 +50,7 @@ namespace GIS2025
         {
             InitializeComponent();
             this.DoubleBuffered = true;
-            this.Page = new XLayoutPage(); // 初始化
+            this.Page = new XLayoutPage();
 
             InitContextMenu();
             layoutBox.MouseWheel += LayoutBox_MouseWheel;
@@ -57,18 +61,31 @@ namespace GIS2025
             this.KeyDown += LayoutControl_KeyDown;
         }
 
-        private void NotifyChanged()
+        private void NotifyElementChanged()
         {
             ElementChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        // ... InitContextMenu 保持不变 ...
+        private void NotifySelectionChanged()
+        {
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        // 提供给 Form1 调用：从外部设置选中（同步 TreeView 点击）
+        public void SelectElement(XLayoutElement ele)
+        {
+            selectedElement = ele;
+            foreach (var e in Page.Elements) e.IsSelected = (e == selectedElement);
+            if (activeMapFrame != null && activeMapFrame != selectedElement) activeMapFrame = null;
+            layoutBox.Invalidate();
+        }
+
         private void InitContextMenu()
         {
             contextMenuLayout = new ContextMenuStrip();
-            var btnActivate = new ToolStripMenuItem("激活地图框");
+            var btnActivate = new ToolStripMenuItem("激活地图框 (进入漫游模式)");
             btnActivate.Click += (s, e) => { ToggleMapActivation(true); };
-            var btnCloseActivate = new ToolStripMenuItem("关闭激活");
+            var btnCloseActivate = new ToolStripMenuItem("退出激活 (返回布局模式)");
             btnCloseActivate.Click += (s, e) => { ToggleMapActivation(false); };
             contextMenuLayout.Items.Add(btnActivate);
             contextMenuLayout.Items.Add(btnCloseActivate);
@@ -88,6 +105,7 @@ namespace GIS2025
             _cacheLayers = layers;
             _cacheBaseLayer = baseLayer;
             _cacheExtent = currentExtent;
+            // 更新所有现有的地图框数据
             foreach (var ele in Page.Elements)
             {
                 if (ele is XMapFrame mapFrame)
@@ -105,7 +123,14 @@ namespace GIS2025
         public void StartCreateScaleBar(ScaleBarStyle style) { CurrentTool = LayoutTool.CreateScaleBar; _pendingScaleBarStyle = style; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartToggleGrid() { CurrentTool = LayoutTool.ToggleGrid; layoutBox.Cursor = Cursors.Hand; DeselectAll(); }
 
-        private void DeselectAll() { selectedElement = null; activeMapFrame = null; layoutBox.Invalidate(); }
+        private void DeselectAll()
+        {
+            selectedElement = null;
+            activeMapFrame = null;
+            foreach (var ele in Page.Elements) ele.IsSelected = false;
+            layoutBox.Invalidate();
+            NotifySelectionChanged();
+        }
 
         // ================= 键盘删除 =================
         private void LayoutControl_KeyDown(object sender, KeyEventArgs e)
@@ -115,14 +140,14 @@ namespace GIS2025
                 Page.Elements.Remove(selectedElement);
                 selectedElement = null;
                 layoutBox.Invalidate();
-                NotifyChanged(); // 【新增】通知树更新
+                NotifyElementChanged(); // 通知 Form1 更新树
             }
         }
 
         // ================= 鼠标事件 =================
         private void LayoutBox_MouseDown(object sender, MouseEventArgs e)
         {
-            this.Focus(); // 获取焦点响应键盘
+            this.Focus();
             mouseDownLoc = e.Location;
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
             float pixelPerMM = dpi / 25.4f;
@@ -132,7 +157,11 @@ namespace GIS2025
 
             if (e.Button == MouseButtons.Right)
             {
-                if (CheckHitElement(e.Location, pixelPerMM)) contextMenuLayout.Show(layoutBox, e.Location);
+                if (CheckHitElement(e.Location, pixelPerMM))
+                {
+                    NotifySelectionChanged();
+                    contextMenuLayout.Show(layoutBox, e.Location);
+                }
                 return;
             }
 
@@ -144,8 +173,20 @@ namespace GIS2025
                     if (currentHandle != ResizeHandle.None) { CurrentTool = LayoutTool.ResizeElement; originalBounds = selectedElement.Bounds; return; }
                 }
 
-                if (CheckHitElement(e.Location, pixelPerMM)) { CurrentTool = LayoutTool.Select; originalBounds = selectedElement.Bounds; }
-                else { CurrentTool = LayoutTool.PanPaper; selectedElement = null; foreach (var ele in Page.Elements) ele.IsSelected = false; layoutBox.Invalidate(); }
+                if (CheckHitElement(e.Location, pixelPerMM))
+                {
+                    CurrentTool = LayoutTool.Select;
+                    originalBounds = selectedElement.Bounds;
+                    NotifySelectionChanged(); // 通知 Form1 选中树节点
+                }
+                else
+                {
+                    CurrentTool = LayoutTool.PanPaper;
+                    selectedElement = null;
+                    foreach (var ele in Page.Elements) ele.IsSelected = false;
+                    layoutBox.Invalidate();
+                    NotifySelectionChanged();
+                }
             }
             else if (e.Button == MouseButtons.Middle) { CurrentTool = LayoutTool.PanPaper; }
         }
@@ -219,7 +260,8 @@ namespace GIS2025
                 CurrentTool = LayoutTool.Select;
                 layoutBox.Cursor = Cursors.Default;
                 layoutBox.Invalidate();
-                NotifyChanged(); // 【新增】通知树更新
+                NotifyElementChanged(); // 通知树结构变化
+                NotifySelectionChanged(); // 通知选中变化
             };
 
             if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
@@ -393,16 +435,20 @@ namespace GIS2025
 
         private bool CheckHitElement(Point mouse, float pixelPerMM)
         {
+            // 倒序检测，优先选中最上面的
             for (int i = Page.Elements.Count - 1; i >= 0; i--)
             {
-                RectangleF r = MMToPixelRect(Page.Elements[i].Bounds, 96); // 96 for hit test approximation or pass actual dpi
-                // Better approach: use actual drawing DPI but for now using stored params
-                // Re-calculate rect using actual params
                 float x = Page.Elements[i].Bounds.X * pixelPerMM * zoomScale + offsetX;
                 float y = Page.Elements[i].Bounds.Y * pixelPerMM * zoomScale + offsetY;
                 float w = Page.Elements[i].Bounds.Width * pixelPerMM * zoomScale;
                 float h = Page.Elements[i].Bounds.Height * pixelPerMM * zoomScale;
-                if (new RectangleF(x, y, w, h).Contains(mouse)) { selectedElement = Page.Elements[i]; selectedElement.IsSelected = true; foreach (var o in Page.Elements) if (o != selectedElement) o.IsSelected = false; return true; }
+                if (new RectangleF(x, y, w, h).Contains(mouse))
+                {
+                    selectedElement = Page.Elements[i];
+                    selectedElement.IsSelected = true;
+                    foreach (var o in Page.Elements) if (o != selectedElement) o.IsSelected = false;
+                    return true;
+                }
             }
             return false;
         }

@@ -14,7 +14,7 @@ namespace XGIS
         public RectangleF Bounds;
         public bool IsSelected = false;
         public string Name = "Element";
-        public bool Visible = true; // 【新增】可见性开关
+        public bool Visible = true; // 可见性开关
 
         // 核心绘制方法
         public abstract void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY);
@@ -34,9 +34,10 @@ namespace XGIS
         {
             if (IsSelected)
             {
+                // 绘制选中框，稍微外扩一点，以免盖住内容
                 using (Pen p = new Pen(Color.Cyan, 2) { DashStyle = DashStyle.Dash })
                 {
-                    g.DrawRectangle(p, rect.X, rect.Y, rect.Width, rect.Height);
+                    g.DrawRectangle(p, rect.X - 2, rect.Y - 2, rect.Width + 4, rect.Height + 4);
                 }
             }
         }
@@ -55,7 +56,7 @@ namespace XGIS
         public XMapFrame(RectangleF bounds, List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
             this.Bounds = bounds;
-            this.Name = "Map Frame";
+            this.Name = "地图框"; // 改个中文名方便看
             this.Layers = layers;
             this.BaseLayer = baseLayer;
             this.FrameView = new XView(new XExtent(currentExtent), new Rectangle(0, 0, 1, 1));
@@ -63,21 +64,28 @@ namespace XGIS
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            if (!Visible) return; // 【新增】如果不显示，直接退出
+            if (!Visible) return;
 
             RectangleF screenRectF = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             Rectangle screenRect = new Rectangle((int)screenRectF.X, (int)screenRectF.Y, (int)screenRectF.Width, (int)screenRectF.Height);
 
+            // 更新视图窗口大小
             FrameView.UpdateMapWindow(new Rectangle(0, 0, screenRect.Width, screenRect.Height));
 
             Region oldClip = g.Clip;
             System.Drawing.Drawing2D.Matrix oldTransform = g.Transform;
 
+            // 设置裁剪区域，防止地图画出框外
             g.SetClip(screenRect);
             g.TranslateTransform(screenRect.X, screenRect.Y);
+
+            // 绘制背景
             g.FillRectangle(Brushes.White, 0, 0, screenRect.Width, screenRect.Height);
 
+            // 绘制底图
             if (BaseLayer != null && BaseLayer.Visible) BaseLayer.Draw(g, FrameView);
+
+            // 绘制矢量图层 (倒序，为了和 MapView 保持一致)
             if (Layers != null)
             {
                 for (int i = Layers.Count - 1; i >= 0; i--)
@@ -86,12 +94,17 @@ namespace XGIS
                 }
             }
 
+            // 绘制经纬网
             if (ShowGrid) DrawGrid(g, screenRect.Width, screenRect.Height, FrameView);
 
+            // 恢复绘图状态
             g.Transform = oldTransform;
             g.Clip = oldClip;
 
+            // 绘制边框
             g.DrawRectangle(Pens.Black, screenRect);
+
+            // 绘制选中状态
             DrawSelectionBox(g, screenRectF);
         }
 
@@ -151,7 +164,7 @@ namespace XGIS
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            if (!Visible) return; // 【新增】
+            if (!Visible) return;
 
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             var state = g.Save();
@@ -214,7 +227,7 @@ namespace XGIS
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            if (!Visible) return; // 【新增】
+            if (!Visible) return;
 
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             if (LinkedMapFrame == null) return;
@@ -325,10 +338,12 @@ namespace XGIS
             float w = WidthMM * pixelPerMM * zoomScale;
             float h = HeightMM * pixelPerMM * zoomScale;
 
+            // 画纸张阴影和背景
             g.FillRectangle(Brushes.Gray, offsetX + 5, offsetY + 5, w, h);
             g.FillRectangle(Brushes.White, offsetX, offsetY, w, h);
             g.DrawRectangle(Pens.Black, offsetX, offsetY, w, h);
 
+            // 绘制所有元素 (顺序：index 0 在最下，index count-1 在最上)
             foreach (var ele in Elements)
             {
                 ele.Draw(g, screenDpi, zoomScale, offsetX, offsetY);
