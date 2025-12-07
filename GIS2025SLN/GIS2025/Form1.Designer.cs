@@ -40,6 +40,7 @@
             this.button_FullExtent = new System.Windows.Forms.Button();
             this.btnSelect = new System.Windows.Forms.Button();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.btnAddLegend = new System.Windows.Forms.Button();
             this.btnAddText = new System.Windows.Forms.Button();
             this.btnAddGrid = new System.Windows.Forms.Button();
             this.btnAddScaleBar = new System.Windows.Forms.Button();
@@ -48,9 +49,11 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.符号系统ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.注记属性ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.移除图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -61,9 +64,6 @@
             this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
-            this.符号系统ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.btnAddLegend = new System.Windows.Forms.Button();
-            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -198,6 +198,18 @@
             this.tabPage2.Text = "Layout";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // btnAddLegend
+            // 
+            this.btnAddLegend.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddLegend.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddLegend.Location = new System.Drawing.Point(1043, 3);
+            this.btnAddLegend.Name = "btnAddLegend";
+            this.btnAddLegend.Size = new System.Drawing.Size(208, 72);
+            this.btnAddLegend.TabIndex = 6;
+            this.btnAddLegend.Text = "添加图例";
+            this.btnAddLegend.UseVisualStyleBackColor = true;
+            this.btnAddLegend.Click += new System.EventHandler(this.btnAddLegend_Click);
+            // 
             // btnAddText
             // 
             this.btnAddText.Dock = System.Windows.Forms.DockStyle.Left;
@@ -304,6 +316,14 @@
             this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
             this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
             // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
+            // 
             // contextMenuLayer
             // 
             this.contextMenuLayer.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -330,6 +350,13 @@
             this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.缩放至图层ToolStripMenuItem.Text = "缩放至图层";
             this.缩放至图层ToolStripMenuItem.Click += new System.EventHandler(this.缩放至图层ToolStripMenuItem_Click);
+            // 
+            // 符号系统ToolStripMenuItem
+            // 
+            this.符号系统ToolStripMenuItem.Name = "符号系统ToolStripMenuItem";
+            this.符号系统ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
+            this.符号系统ToolStripMenuItem.Text = "符号系统";
+            this.符号系统ToolStripMenuItem.Click += new System.EventHandler(this.符号系统ToolStripMenuItem_Click);
             // 
             // 注记ToolStripMenuItem
             // 
@@ -405,33 +432,6 @@
             this.tsmiScaleBar.Size = new System.Drawing.Size(115, 30);
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
-            // 
-            // 符号系统ToolStripMenuItem
-            // 
-            this.符号系统ToolStripMenuItem.Name = "符号系统ToolStripMenuItem";
-            this.符号系统ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
-            this.符号系统ToolStripMenuItem.Text = "符号系统";
-            this.符号系统ToolStripMenuItem.Click += new System.EventHandler(this.符号系统ToolStripMenuItem_Click);
-            // 
-            // btnAddLegend
-            // 
-            this.btnAddLegend.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddLegend.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddLegend.Location = new System.Drawing.Point(1043, 3);
-            this.btnAddLegend.Name = "btnAddLegend";
-            this.btnAddLegend.Size = new System.Drawing.Size(208, 72);
-            this.btnAddLegend.TabIndex = 6;
-            this.btnAddLegend.Text = "添加图例";
-            this.btnAddLegend.UseVisualStyleBackColor = true;
-            this.btnAddLegend.Click += new System.EventHandler(this.btnAddLegend_Click);
-            // 
-            // myLayoutControl
-            // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
             // 
             // FormMap
             // 

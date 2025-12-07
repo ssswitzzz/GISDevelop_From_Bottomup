@@ -217,7 +217,7 @@ namespace GIS2025
                     ele.Visible = node.Checked; // 同步 Visible
 
                     treeViewLayout.Invalidate();
-                    myLayoutControl.Invalidate(); // 刷新画布
+                    myLayoutControl.Refresh(); // 【修改】强制立即刷新
                     return;
                 }
 
@@ -277,6 +277,7 @@ namespace GIS2025
         }
 
         // Layout 树拖拽放下 (处理 Z-Order)
+        // 【关键修复点】
         private void TreeViewLayout_DragDrop(object sender, DragEventArgs e)
         {
             TreeNode srcNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
@@ -288,6 +289,7 @@ namespace GIS2025
 
             if (srcNode == null || srcNode.TreeView != treeViewLayout) return;
 
+            // 1. 调整 TreeView 中的节点顺序
             if (targetNode == null)
             {
                 treeViewLayout.Nodes.Remove(srcNode);
@@ -300,16 +302,22 @@ namespace GIS2025
             }
             treeViewLayout.SelectedNode = srcNode;
 
-            // 根据 TreeView 顺序重构 Elements 列表
+            // 2. 根据 TreeView 的新顺序，重构 myLayoutControl.Page.Elements 列表
+            // 逻辑：TreeView 最上面的节点 (Index 0) 对应最顶层 (Elements 的最后一个)
+            // 列表通常是：0 (最底层) -> Count-1 (最顶层)
+            // 所以我们倒序遍历 TreeView，把节点加到 List 里
             myLayoutControl.Page.Elements.Clear();
-            // 倒序：Tree Top -> Element List Last (Top Layer)
+
             for (int i = treeViewLayout.Nodes.Count - 1; i >= 0; i--)
             {
                 XLayoutElement ele = treeViewLayout.Nodes[i].Tag as XLayoutElement;
                 if (ele != null) myLayoutControl.Page.Elements.Add(ele);
             }
 
-            myLayoutControl.Invalidate();
+            // 3. 【核心修复】强制同步重绘
+            // 之前用 Invalidate() 可能会延迟，导致松手瞬间看不到变化
+            // 改用 Refresh() 立即执行 Paint
+            myLayoutControl.Refresh();
         }
 
         // ==========================================
@@ -566,6 +574,7 @@ namespace GIS2025
             e.Effect = DragDropEffects.Move;
         }
 
+        // 地图图层拖拽 (如果你也想让地图图层拖拽时，Layout界面如果有地图框也能实时更新，这里也加了 Refresh)
         private void treeView1_DragDrop(object sender, DragEventArgs e)
         {
             TreeNode srcNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
@@ -583,6 +592,7 @@ namespace GIS2025
                 if (treeView1.Nodes[i].Tag is XVectorLayer vl) layers.Add(vl);
             }
             UpdateMap();
+            myLayoutControl.Refresh(); // 【修改】这里也改成了 Refresh，防止切换回 Layout 时显示旧图像
         }
 
         private void treeView1_DragLeave(object sender, EventArgs e) { dropTargetNode = null; treeView1.Invalidate(); }
