@@ -1,0 +1,41 @@
+8ed232d,ssswitzzz,2025-12-07,style: 添加了按钮的icon，增加高级感！
+0186e4f,ssswitzzz,2025-12-07,fix: 修改了导出地图时的分辨率问题
+7cd7d4d,ssswitzzz,2025-12-07,feat: 实现了地图的导出功能
+6bbfaf5,ssswitzzz,2025-12-07,fix: 修正了Layout treeview拖动图层时需要多点一下才会刷新的Bug
+16a520b,四叶草,2025-12-07,Update README with completed task status
+a13922e,ssswitzzz,2025-12-07,feat: 添加了图例功能
+81b636d,ssswitzzz,2025-12-07,fix: 修改了一些界面的重叠问题
+c5b5090,ssswitzzz,2025-12-07,fix: 修复了符号系统页面没有记忆性的问题
+0b6f5b0,ssswitzzz,2025-12-07,fix: 对Symbology窗体的各种Bug进行修改
+82f9ad0,ssswitzzz,2025-12-07,feat: 现在可以对要素进行符号系统自定义了
+d1e253c,ssswitzzz,2025-12-06,feat: 添加了文本框，在Layout中可以自定义文本内容了 fix: 修复了缩放时地图只会缩小不会变大的问题
+e7379cd,ssswitzzz,2025-12-06,feat: 实现了Layout图层自动对齐以及贴齐的功能
+83a6fa4,ssswitzzz,2025-12-06,fix: 修正了地图框中缩放不以鼠标为中心的问题，修正了Layout treeview中不能拖拽图层的问题
+df0826d,ssswitzzz,2025-12-06,feat: 对layout的treeview进行了完善，可以基本实现和地图界面一样的功能
+e955318,ssswitzzz,2025-12-06,feat: 在layout视图内也新建了一个TreeView，剩余功能等待完善
+80dc5d2,ssswitzzz,2025-12-06,fix: 修复了放大缩小时地图需要重新加载造成的全图变白的问题，提升视觉效果
+6e08511,ssswitzzz,2025-12-06,fix: 修复了比例尺和经纬网无法识别坐标信息而不随地图变化而变化的问题
+301d654,ssswitzzz,2025-12-06,feat: 在Layout界面能够添加比例尺和经纬网了
+705d391,ssswitzzz,2025-12-06,feat: 新增了添加指北针的功能
+ee2dbc4,四叶草,2025-12-06,Update README.md
+effada2,ssswitzzz,2025-12-06,fix: 修复了map frame的透镜效应，修正了resize的时候没法结束的bug，修复了map中添加新要素但是layout里面看不到的bug
+668e13f,ssswitzzz,2025-12-06,feat: 在Layout界面中添加了标尺
+4788bbf,ssswitzzz,2025-12-06,feat: 新增layout视图，功能还需完善
+a6abf03,四叶草,2025-12-06,Revise project title and description in README
+8179f72,四叶草,2025-12-05,Update README with completed tasks and new items
+eb8df0b,ssswitzzz,2025-12-05,feat: 新增注记属性，现在可以对注记进行个性化调整了
+02d58c5,ssswitzzz,2025-12-05,feat: 现在可以查看属性表了；右键图层可以打开小菜单，可以选择缩放至图层、查看属性表、显示注记、移除图层
+1eececd,四叶草,2025-12-01,Update README with new tasks and fixes
+5b5e80e,ssswitzzz,2025-11-29,fix: 修正了treeView中图层拖动只能拖动有文字的位置，现在整个图层的Rectangle都能拖动了
+52691a6,ssswitzzz,2025-11-29,fix: 修改拖动layer时会看选择框的问题；选择状态中修改为左键选择，中键漫游；修复点击Explore时只要鼠标移到地图上就会自动拖动的问题
+06b54f9,ssswitzzz,2025-11-29,- 在flowLayoutPanel中新增“选择”按钮，添加选择功能，statusStrip中新增“选中要素”字样 - 对要素的选中样式也进行修改，删除XThematic中的polygonBrush，修改填充和边框颜色
+dff3e60,ssswitzzz,2025-11-28,- 默认添加了天地图矢量底图，完善了XTileLayer - 点击全图以及加载shp都不会报错，并且底图也不会无限延伸了
+0722f4f,ssswitzzz,2025-11-28,- 缩放更改为以鼠标指针为中心，并且让缩放变得更丝滑 - 注释了有关预加载地图的代码，后续完善
+f71dee3,四叶草,2025-11-27,Update tasks for layer management interface in README
+30091fe,四叶草,2025-11-27,Update README to mark zoom feature as complete
+8937c7c,ssswitzzz,2025-11-27,- 实现ToC的图层拖拽，添加是否visible的icon，但是鼠标点击区域还没搞清楚 - 将滚轮放大缩小的中心点改为了鼠标指针中心，而非屏幕中心
+69a78c4,四叶草,2025-11-27,Update README.md
+1f29990,ssswitzzz,2025-11-27,更改DPIAware，在新WinForm界面下完成课程内容重制
+495125d,ssswitzzz,2025-11-27,commit necessary files
+28371c4,ssswitzzz,2025-11-27,Initial Commit
+46a86df,四叶草,2025-11-27,create readme

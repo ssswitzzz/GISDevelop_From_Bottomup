@@ -291,9 +291,9 @@ namespace XGIS
                     case ScaleBarStyle.AlternatingBar:
                         float barH = h / 3;
                         float segW = drawWidth / 4;
-                        g.FillRectangle(bBlack, x, y + barH, segW, barH);
+                        g.FillRectangle(bBlack, x, y + barH, segW, barH); g.DrawRectangle(p, x, y + barH, segW, barH);
                         g.FillRectangle(bWhite, x + segW, y + barH, segW, barH); g.DrawRectangle(p, x + segW, y + barH, segW, barH);
-                        g.FillRectangle(bBlack, x + 2 * segW, y + barH, segW, barH);
+                        g.FillRectangle(bBlack, x + 2 * segW, y + barH, segW, barH); g.DrawRectangle(p, x + 2 * segW, y + barH, segW, barH);
                         g.FillRectangle(bWhite, x + 3 * segW, y + barH, segW, barH); g.DrawRectangle(p, x + 3 * segW, y + barH, segW, barH);
                         g.DrawString("0", f, bBlack, x, y + barH * 2);
                         g.DrawString(labelText, f, bBlack, x + drawWidth - labelPadding, y + barH * 2);

@@ -65,6 +65,7 @@
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
             this.mapBox = new System.Windows.Forms.PictureBox();
             this.myLayoutControl = new GIS2025.LayoutControl();
+            this.doubleLineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -406,21 +407,22 @@
             this.cmsScaleBar.ImageScalingSize = new System.Drawing.Size(24, 24);
             this.cmsScaleBar.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiScaleLine,
-            this.tsmiScaleBar});
+            this.tsmiScaleBar,
+            this.doubleLineToolStripMenuItem});
             this.cmsScaleBar.Name = "cmsScaleBar";
-            this.cmsScaleBar.Size = new System.Drawing.Size(116, 64);
+            this.cmsScaleBar.Size = new System.Drawing.Size(179, 94);
             // 
             // tsmiScaleLine
             // 
             this.tsmiScaleLine.Name = "tsmiScaleLine";
-            this.tsmiScaleLine.Size = new System.Drawing.Size(115, 30);
+            this.tsmiScaleLine.Size = new System.Drawing.Size(178, 30);
             this.tsmiScaleLine.Text = "Line";
             this.tsmiScaleLine.Click += new System.EventHandler(this.tsmiScaleLine_Click);
             // 
             // tsmiScaleBar
             // 
             this.tsmiScaleBar.Name = "tsmiScaleBar";
-            this.tsmiScaleBar.Size = new System.Drawing.Size(115, 30);
+            this.tsmiScaleBar.Size = new System.Drawing.Size(178, 30);
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
             // 
@@ -446,6 +448,13 @@
             this.myLayoutControl.Name = "myLayoutControl";
             this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
             this.myLayoutControl.TabIndex = 1;
+            // 
+            // doubleLineToolStripMenuItem
+            // 
+            this.doubleLineToolStripMenuItem.Name = "doubleLineToolStripMenuItem";
+            this.doubleLineToolStripMenuItem.Size = new System.Drawing.Size(178, 30);
+            this.doubleLineToolStripMenuItem.Text = "DoubleLine";
+            this.doubleLineToolStripMenuItem.Click += new System.EventHandler(this.tsmiScaleDouble_Click);
             // 
             // FormMap
             // 
@@ -515,6 +524,7 @@
         private System.Windows.Forms.ToolStripMenuItem 符号系统ToolStripMenuItem;
         private System.Windows.Forms.Button btnAddLegend;
         private System.Windows.Forms.Button btnAddExport;
+        private System.Windows.Forms.ToolStripMenuItem doubleLineToolStripMenuItem;
     }
 }
 
