@@ -159,7 +159,15 @@ namespace GIS2025
         private void BtnFont_Click(object sender, EventArgs e)
         {
             FontDialog fd = new FontDialog();
-            fd.Font = _tempFont;
+
+            // 显式设置这些属性，防止某些系统环境下对话框行为异常
+            fd.ShowColor = false;
+            fd.ShowEffects = false; // 我们只调字体和字号，不在这里调颜色/下划线
+            fd.AllowVerticalFonts = false;
+
+            // 确保 _tempFont 不为 null
+            fd.Font = _tempFont ?? new Font("Arial", 12);
+
             if (fd.ShowDialog() == DialogResult.OK)
             {
                 _tempFont = fd.Font;
@@ -182,9 +190,28 @@ namespace GIS2025
 
         private void UpdatePreview()
         {
+            if (lblPreview == null || pnlPreviewContainer == null) return;
+
+            // 1. 临时挂起布局，防止闪烁
+            pnlPreviewContainer.SuspendLayout();
+            lblPreview.SuspendLayout();
+
+            // 2. 更新属性
             lblPreview.Text = txtContent.Text;
+
+            // 关键修复：显式创建一个新 Font 对象赋给 Label，或者强制 Refresh
+            // 有时候直接赋同一个引用的 Font 对象不会触发重绘
             lblPreview.Font = _tempFont;
             lblPreview.ForeColor = _tempColor;
+
+            // 3. 恢复布局并强制触发布局计算 (PerformLayout)
+            // 这一步最关键，它会告诉 Panel："嘿，里面的 Label 变大了，快更新滚动条！"
+            lblPreview.ResumeLayout();
+            pnlPreviewContainer.ResumeLayout();
+            pnlPreviewContainer.PerformLayout();
+
+            // 4. 强制重绘
+            lblPreview.Invalidate();
         }
 
         private void BtnOk_Click(object sender, EventArgs e)

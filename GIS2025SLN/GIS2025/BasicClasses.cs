@@ -616,6 +616,89 @@ namespace XGIS
             byte[] sbytes = br.ReadBytes(length);
             return Encoding.GetEncoding("gb2312").GetString(sbytes);
         }
+        // 1. 生成 Jenks Natural Breaks (自然间断点)
+        public static List<double> GetJenksBreaks(List<double> dataList, int numClass)
+        {
+            if (dataList.Count == 0) return new List<double>();
+
+            dataList.Sort();
+            int count = dataList.Count;
+
+            // 矩阵初始化
+            double[,] mat1 = new double[count + 1, numClass + 1];
+            double[,] mat2 = new double[count + 1, numClass + 1];
+
+            for (int i = 1; i <= numClass; i++)
+            {
+                mat1[1, i] = 1;
+                mat2[1, i] = 0;
+                for (int j = 2; j <= count; j++)
+                    mat2[j, i] = double.MaxValue;
+            }
+
+            double v = 0;
+            for (int l = 2; l <= count; l++)
+            {
+                double s1 = 0;
+                double s2 = 0;
+                double w = 0;
+                for (int m = 1; m <= l; m++)
+                {
+                    int i3 = l - m + 1;
+                    double val = dataList[i3 - 1];
+                    s2 += val * val;
+                    s1 += val;
+                    w++;
+                    v = s2 - (s1 * s1) / w;
+                    int i4 = i3 - 1;
+                    if (i4 != 0)
+                    {
+                        for (int j = 2; j <= numClass; j++)
+                        {
+                            if (mat2[l, j] >= (v + mat2[i4, j - 1]))
+                            {
+                                mat1[l, j] = i3;
+                                mat2[l, j] = v + mat2[i4, j - 1];
+                            }
+                        }
+                    }
+                }
+                mat1[l, 1] = 1;
+                mat2[l, 1] = v;
+            }
+
+            List<double> kclass = new List<double>();
+            kclass.Add(dataList[count - 1]); // 最大值
+            int k = count;
+            for (int j = numClass; j >= 2; j--)
+            {
+                int id = (int)(mat1[k, j]) - 2;
+                if (id >= 0 && id < dataList.Count)
+                    kclass.Add(dataList[id]);
+                k = (int)mat1[k, j] - 1;
+            }
+            kclass.Add(dataList[0]); // 最小值
+            kclass.Sort();
+            return kclass; // 返回的是分界点列表：Min, break1, break2, ..., Max
+        }
+
+        // 2. 生成渐变色
+        public static Color GetInterpolatedColor(Color start, Color end, double fraction)
+        {
+            if (fraction < 0) fraction = 0;
+            if (fraction > 1) fraction = 1;
+            int r = (int)(start.R + (end.R - start.R) * fraction);
+            int g = (int)(start.G + (end.G - start.G) * fraction);
+            int b = (int)(start.B + (end.B - start.B) * fraction);
+            return Color.FromArgb(r, g, b);
+        }
+
+        // 3. 生成随机颜色
+        private static Random rand = new Random();
+        public static Color GetRandomColor()
+        {
+            return Color.FromArgb(rand.Next(256), rand.Next(256), rand.Next(256));
+        }
 
 
 
@@ -637,9 +720,18 @@ namespace XGIS
         public XLabelThematic LabelThematic = new XLabelThematic();
 
         public List<XFeature> SelectedFeatures = new List<XFeature>();
-        public XThematic UnselectedThematic, SelectedThematic;
+        // --- 原有的 Thematic 用于 Selected 和 SingleSymbol ---
+        public XThematic UnselectedThematic; // 单一符号用这个
+        public XThematic SelectedThematic;
+        // --- 新增渲染属性 ---
+        public RenderMode ThematicMode = RenderMode.SingleSymbol; // 当前模式
+        public string RenderField = ""; // 用于渲染的字段名
 
+        // 唯一值渲染字典: 值 -> 样式
+        public Dictionary<string, XThematic> UniqueRenderer = new Dictionary<string, XThematic>();
 
+        // 分级渲染列表
+        public List<ClassBreak> ClassBreaks = new List<ClassBreak>();
         public XVectorLayer(string _name, SHAPETYPE _shapetype)
         {
             Name = _name;
@@ -750,27 +842,96 @@ namespace XGIS
             UpdateExtent();
         }
 
+        // --- 核心修改：Draw 方法需要根据模式分流 ---
         public void draw(Graphics graphics, XView view)
         {
             if (Extent == null) return;
-            if (Features.Count==0) return;
-            if (FeatureCount() == 0) return;
+            if (Features.Count == 0) return;
+            if (Visible == false) return; // 加上可见性判断
 
+            // 稍微扩大一点裁剪范围，防止边缘点被切掉
             if (!Extent.IntersectOrNot(view.CurrentMapExtent)) return;
 
-
+            // 找到渲染字段的索引 (如果是分类或分级模式)
+            int fieldIndex = -1;
+            if (ThematicMode != RenderMode.SingleSymbol && RenderField != "")
+            {
+                fieldIndex = GetFieldIndex(RenderField);
+            }
 
             for (int i = 0; i < Features.Count; i++)
             {
-                if (Features[i].spatial.extent.IntersectOrNot(view.CurrentMapExtent))
-                    Features[i].draw(graphics, view, LabelOrNot, LabelIndex,
-                        SelectedFeatures.Contains(Features[i]) ?
-                            SelectedThematic :
-                            UnselectedThematic, this.LabelThematic);
+                XFeature feature = Features[i];
+                // 空间过滤
+                if (!feature.spatial.extent.IntersectOrNot(view.CurrentMapExtent)) continue;
+
+                // 决定使用哪个样式
+                XThematic currentThematic = UnselectedThematic; // 默认
+
+                if (SelectedFeatures.Contains(feature))
+                {
+                    currentThematic = SelectedThematic;
+                }
+                else
+                {
+                    // 根据渲染模式选择样式
+                    if (ThematicMode == RenderMode.UniqueValues && fieldIndex != -1)
+                    {
+                        string val = feature.getAttribute(fieldIndex).ToString();
+                        if (UniqueRenderer.ContainsKey(val))
+                        {
+                            currentThematic = UniqueRenderer[val];
+                        }
+                    }
+                    else if (ThematicMode == RenderMode.GraduatedSymbols && fieldIndex != -1)
+                    {
+                        // 获取数值
+                        try
+                        {
+                            double val = Convert.ToDouble(feature.getAttribute(fieldIndex));
+                            // 查找所在的级别
+                            foreach (var cb in ClassBreaks)
+                            {
+                                if (val >= cb.MinValue && val <= cb.MaxValue)
+                                {
+                                    currentThematic = cb.Thematic;
+                                    break;
+                                }
+                            }
+                        }
+                        catch { /* 数值转换失败就用默认 */ }
+                    }
+                }
+
+                // 绘制
+                feature.draw(graphics, view, LabelOrNot, LabelIndex, currentThematic, this.LabelThematic);
             }
+        }
+        public int GetFieldIndex(string fieldName)
+        {
+            for (int i = 0; i < Fields.Count; i++)
+            {
+                if (Fields[i].name == fieldName) return i;
+            }
+            return -1;
         }
 
     }
+    public class ClassBreak
+    {
+        public double MinValue;
+        public double MaxValue;
+        public XThematic Thematic;
+        public string Label; // 例如 "0 - 100"
+    }
+    // 1. 定义渲染模式枚举
+    public enum RenderMode
+    {
+        SingleSymbol,   // 单一符号
+        UniqueValues,   // 唯一值 (分类)
+        GraduatedSymbols // 分级符号 (数量)
+    }
+
     public class XField
     {
         public Type datatype;
@@ -1830,5 +1991,6 @@ namespace XGIS
             return new Rectangle(p1.X, p1.Y, p2.X - p1.X + 1, p2.Y - p1.Y + 1);
         }
     }
+
 }
 

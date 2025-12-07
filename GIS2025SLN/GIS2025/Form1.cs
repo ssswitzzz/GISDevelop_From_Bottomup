@@ -667,6 +667,33 @@ namespace GIS2025
             if (l != null && l.Extent != null) { view.Update(l.Extent, mapBox.ClientRectangle); UpdateMap(); myLayoutControl.Invalidate(); }
         }
 
+        private void 符号系统ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // 获取当前选中的图层
+            XVectorLayer layer = null;
+            if (treeView1.SelectedNode != null && treeView1.SelectedNode.Tag is XVectorLayer)
+            {
+                layer = treeView1.SelectedNode.Tag as XVectorLayer;
+            }
+
+            // Layout 视图的判断逻辑
+            if (layer == null && tabControl1.SelectedTab == tabPage2 && treeViewLayout.SelectedNode != null)
+            {
+                layer = treeViewLayout.SelectedNode.Tag as XVectorLayer;
+            }
+
+            if (layer == null) return;
+
+            // 打开符号设置窗口
+            FormSymbology frm = new FormSymbology(layer);
+            if (frm.ShowDialog() == DialogResult.OK)
+            {
+                UpdateMap(); // 刷新地图
+                if (myLayoutControl.Visible) myLayoutControl.Invalidate(); // 刷新布局
+            }
+
+        }
+
         private void 打开属性表ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             XVectorLayer l = null;
