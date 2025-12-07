@@ -219,10 +219,10 @@ namespace GIS2025
 
             // 第三行：尺寸范围 (右侧区域)
             Label l3 = new Label() { Text = "尺寸范围:", Location = new Point(380, 60), AutoSize = true }; // X=380
-            numMinSize = new NumericUpDown() { Location = new Point(460, 58), Minimum = 1, Maximum = 50, Value = 3, Width = 60 }; // X=460
+            numMinSize = new NumericUpDown() { Location = new Point(480, 58), Minimum = 1, Maximum = 50, Value = 3, Width = 60 }; // X=460
 
-            Label lToSize = new Label() { Text = "-", Location = new Point(530, 60), AutoSize = true };
-            numMaxSize = new NumericUpDown() { Location = new Point(550, 58), Minimum = 1, Maximum = 100, Value = 15, Width = 60 };
+            Label lToSize = new Label() { Text = "-", Location = new Point(500, 60), AutoSize = true };
+            numMaxSize = new NumericUpDown() { Location = new Point(570, 58), Minimum = 1, Maximum = 100, Value = 15, Width = 60 };
 
             // 右侧：计算按钮
             // 放在最右边
@@ -318,7 +318,7 @@ namespace GIS2025
                 pnlContainer.Controls.Add(pnlEndColor);
                 pnlContainer.Controls.Add(new Label() { Text = "尺寸范围:", Location = new Point(380, 60), AutoSize = true });
                 pnlContainer.Controls.Add(numMinSize);
-                pnlContainer.Controls.Add(new Label() { Text = "-", Location = new Point(530, 60), AutoSize = true });
+                pnlContainer.Controls.Add(new Label() { Text = "-", Location = new Point(550, 60), AutoSize = true });
                 pnlContainer.Controls.Add(numMaxSize);
                 pnlContainer.Controls.Add(_btnCalcGraduated);
 
