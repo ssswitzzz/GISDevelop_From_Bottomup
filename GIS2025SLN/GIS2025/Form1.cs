@@ -643,17 +643,6 @@ namespace GIS2025
             UpdateMap();
         }
 
-        private void btnOpenShapefile_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog dlg = new OpenFileDialog(); dlg.Filter = "Shapefile|*.shp";
-            if (dlg.ShowDialog() != DialogResult.OK) return;
-            XVectorLayer layer = XShapefile.ReadShapefile(dlg.FileName);
-            layer.LabelOrNot = false;
-            if (layers.Count == 0) layers.Add(layer); else layers[0] = layer;
-            view.Update(layer.Extent, mapBox.ClientRectangle);
-            UpdateMap();
-        }
-
         private void button_FullExtent_Click(object sender, EventArgs e)
         {
             if (treeView1.Nodes.Count == 0) return;
@@ -670,15 +659,34 @@ namespace GIS2025
 
         private void button_ReadShp_Click(object sender, EventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog(); dialog.Filter = "Shapefile|*.shp"; if (dialog.ShowDialog() != DialogResult.OK) return;
+            OpenFileDialog dialog = new OpenFileDialog();
+            dialog.Filter = "Shapefile|*.shp";
+
+            // 1. 【必须】开启多选
+            dialog.Multiselect = true;
+
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+
+            // 记录初始数量
+            int initialCount = layers.Count;
+
             foreach (string f in dialog.FileNames)
             {
                 XVectorLayer l = XShapefile.ReadShapefile(f);
-                l.Name = System.IO.Path.GetFileNameWithoutExtension(f); l.LabelOrNot = false;
+                l.Name = System.IO.Path.GetFileNameWithoutExtension(f);
+                l.LabelOrNot = false;
+
                 TreeNode n = new TreeNode(l.Name) { Tag = l, Checked = true };
-                treeView1.Nodes.Insert(0, n); layers.Add(l);
+                treeView1.Nodes.Insert(0, n);
+                layers.Add(l);
             }
-            if (layers.Count == 1) button_FullExtent_Click(null, null);
+
+            // 2. 智能缩放：如果是从无到有，自动全图显示
+            if (initialCount == 0 && layers.Count > 0)
+            {
+                button_FullExtent_Click(null, null);
+            }
+
             UpdateMap();
         }
 
