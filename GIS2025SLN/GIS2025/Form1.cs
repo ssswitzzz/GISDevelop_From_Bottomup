@@ -450,37 +450,67 @@ namespace GIS2025
             foreach (TreeNode node in treeView1.Nodes) { if (node.Tag is XVectorLayer layer) totalCount += layer.SelectedFeatures.Count; }
             lblSelectCount.Text = $"选中要素: {totalCount}";
         }
+        private void DrawMapContent(Graphics g)
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality; // 抗锯齿
+            g.Clear(Color.White);
+
+            // 倒序遍历（和原来一样）
+            for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
+            {
+                TreeNode node = treeView1.Nodes[i];
+                if (!node.Checked) continue;
+
+                if (node.Tag is XVectorLayer vectorLayer)
+                {
+                    vectorLayer.draw(g, view); // 矢量
+                }
+                else if (node.Tag is XTileLayer tileLayer)
+                {
+                    tileLayer.Draw(g, view);   // 瓦片
+                }
+            }
+        }
 
         private void MapBox_MouseLeave(object sender, EventArgs e) { lblCoordinates.Text = "Ready"; }
 
         private void UpdateMap()
         {
             if (view == null || mapBox.Width == 0 || mapBox.Height == 0) return;
+
+            // 确保视图窗口大小正确
             view.UpdateMapWindow(mapBox.ClientRectangle);
+
+            // 重新生成缓存图片 (backwindow)
             if (backwindow != null) backwindow.Dispose();
             backwindow = new Bitmap(mapBox.Width, mapBox.Height);
-            Graphics g = Graphics.FromImage(backwindow);
-            g.Clear(Color.White);
 
-            for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
+            using (Graphics g = Graphics.FromImage(backwindow))
             {
-                TreeNode node = treeView1.Nodes[i];
-                if (!node.Checked) continue;
-                if (node.Tag is XVectorLayer vectorLayer) vectorLayer.draw(g, view);
-                else if (node.Tag is XTileLayer tileLayer) tileLayer.Draw(g, view);
+                DrawMapContent(g); // 【修改】调用通用绘图方法
             }
-            g.Dispose();
+
             mapBox.Invalidate();
         }
 
         private void mapBox_Paint(object sender, PaintEventArgs e)
         {
-            if (backwindow == null) return;
-            if (currentMouseAction == XExploreActions.pan) e.Graphics.DrawImage(backwindow, MouseMovingLocation.X - MouseDownLocation.X, MouseMovingLocation.Y - MouseDownLocation.Y);
+            // 1. 如果正在漫游，直接实时画！(解决割裂感的核心)
+            if (currentMouseAction == XExploreActions.pan)
+            {
+                DrawMapContent(e.Graphics); // 直接调用绘图，画出视野外的新东西
+            }
+            // 2. 如果是静态或者拉框，画缓存图片 (节省性能)
             else
             {
-                e.Graphics.DrawImage(backwindow, 0, 0);
-                if ((currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select) && Math.Abs(MouseDownLocation.X - MouseMovingLocation.X) > 0)
+                if (backwindow != null)
+                {
+                    e.Graphics.DrawImage(backwindow, 0, 0);
+                }
+
+                // 绘制拉框的红/蓝框
+                if ((currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select) &&
+                    Math.Abs(MouseDownLocation.X - MouseMovingLocation.X) > 0)
                 {
                     int x = Math.Min(MouseDownLocation.X, MouseMovingLocation.X);
                     int y = Math.Min(MouseDownLocation.Y, MouseMovingLocation.Y);
@@ -495,7 +525,10 @@ namespace GIS2025
         private void mapBox_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right) return;
+
             MouseDownLocation = e.Location;
+            MouseMovingLocation = e.Location; // 【新增】初始化移动位置
+
             if (Control.ModifierKeys == Keys.Shift) { currentMouseAction = XExploreActions.zoominbybox; return; }
             if (e.Button == MouseButtons.Middle) { currentMouseAction = XExploreActions.pan; mapBox.Cursor = Cursors.Hand; return; }
             if (e.Button == MouseButtons.Left)
@@ -507,26 +540,64 @@ namespace GIS2025
 
         private void mapBox_MouseMove(object sender, MouseEventArgs e)
         {
+            // 显示坐标
             XVertex v = view.ToMapVertex(e.Location);
             lblCoordinates.Text = $"X: {v.x:F2}, Y: {v.y:F2}";
+
             if (currentMouseAction == XExploreActions.noaction) return;
-            MouseMovingLocation = e.Location;
-            if (currentMouseAction == XExploreActions.pan || currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select) mapBox.Invalidate();
+
+            // 1. 漫游逻辑 (实时更新)
+            if (currentMouseAction == XExploreActions.pan)
+            {
+                // 计算这一瞬间的位移 (从上一次鼠标位置 -> 当前位置)
+                XVertex v1 = view.ToMapVertex(MouseMovingLocation); // 上一帧的位置
+                XVertex v2 = view.ToMapVertex(e.Location);          // 当前的位置
+
+                // 【核心】直接移动视图中心
+                view.OffsetCenter(v1, v2);
+
+                // 更新“上一帧位置”为“当前位置”，以便下一次计算增量
+                MouseMovingLocation = e.Location;
+                // 注意：这里不用 MouseDownLocation 了，因为是连续增量移动
+
+                // 强制立即重绘 (不用 UpdateMap，因为太慢，直接 Invalidate 触发 Paint)
+                mapBox.Invalidate();
+            }
+            // 2. 拉框放大/选择逻辑 (保持原样)
+            else if (currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select)
+            {
+                MouseMovingLocation = e.Location;
+                mapBox.Invalidate();
+            }
         }
 
         private void mapBox_MouseUp(object sender, MouseEventArgs e)
         {
-            if (MouseDownLocation == e.Location && currentMouseAction != XExploreActions.select) { currentMouseAction = XExploreActions.noaction; return; }
-            XVertex v1 = view.ToMapVertex(MouseDownLocation);
-            XVertex v2 = view.ToMapVertex(e.Location);
+            if (MouseDownLocation == e.Location && currentMouseAction != XExploreActions.select)
+            {
+                currentMouseAction = XExploreActions.noaction;
+                return;
+            }
 
+            // 处理拉框放大
             if (currentMouseAction == XExploreActions.zoominbybox)
             {
-                if (Math.Abs(MouseDownLocation.X - e.X) > 2) view.Update(new XExtent(v1, v2), mapBox.ClientRectangle);
+                XVertex v1 = view.ToMapVertex(MouseDownLocation);
+                XVertex v2 = view.ToMapVertex(e.Location);
+                if (Math.Abs(MouseDownLocation.X - e.X) > 2)
+                    view.Update(new XExtent(v1, v2), mapBox.ClientRectangle);
             }
-            else if (currentMouseAction == XExploreActions.pan) view.OffsetCenter(v1, v2);
+            // 【修改】漫游结束时，View 已经在 MouseMove 里移好了，这里什么都不用做
+            else if (currentMouseAction == XExploreActions.pan)
+            {
+                // 这里的 OffsetCenter 逻辑删掉，因为已经在 Move 里做过了
+            }
+            // 处理选择
             else if (currentMouseAction == XExploreActions.select)
             {
+                XVertex v1 = view.ToMapVertex(MouseDownLocation);
+                XVertex v2 = view.ToMapVertex(e.Location);
+                // ... (选择逻辑保持不变) ...
                 int dx = Math.Abs(MouseDownLocation.X - e.X);
                 int dy = Math.Abs(MouseDownLocation.Y - e.Y);
                 bool modify = (Control.ModifierKeys == Keys.Control);
@@ -549,8 +620,11 @@ namespace GIS2025
                 }
                 UpdateSelectionStatus();
             }
+
             currentMouseAction = XExploreActions.noaction;
             mapBox.Cursor = (baseTool == XExploreActions.pan) ? Cursors.Hand : Cursors.Default;
+
+            // 最后生成一次静态缓存，供静止时显示
             UpdateMap();
         }
 
