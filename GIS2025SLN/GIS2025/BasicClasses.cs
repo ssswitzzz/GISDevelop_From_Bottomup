@@ -6,10 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Windows.Forms.LinkLabel;
+using System.Windows.Forms;
 
 namespace XGIS
 {
@@ -40,6 +39,7 @@ namespace XGIS
             PointRadius = _PointRadius;
         }
     }
+
     // 用于记录注记的各种风格参数
     public class XLabelThematic
     {
@@ -51,8 +51,24 @@ namespace XGIS
         public Color OutlineColor = Color.White; // 描边颜色
         public float OutlineWidth = 2.0f; // 描边宽度
 
-        // 也可以加一个 OffsetY，防止注记盖住点
-         public int OffsetY = -10; 
+        public int OffsetY = -10;
+    }
+
+    // 1. 定义渲染模式枚举
+    public enum RenderMode
+    {
+        SingleSymbol,   // 单一符号
+        UniqueValues,   // 唯一值 (分类)
+        GraduatedSymbols // 分级符号 (数量)
+    }
+
+    // 2. 分级渲染类
+    public class ClassBreak
+    {
+        public double MinValue;
+        public double MaxValue;
+        public XThematic Thematic;
+        public string Label; // 例如 "0 - 100"
     }
 
     public class XSelect
@@ -71,14 +87,14 @@ namespace XGIS
         public static List<XFeature> ToFeatures(List<SelectResult> srs)
         {
             List<XFeature> fs = new List<XFeature>();
-            foreach(SelectResult sr in srs)
+            foreach (SelectResult sr in srs)
             {
                 fs.Add(sr.feature);
             }
             return fs;
         }
 
-        public static List<SelectResult> SelectFeaturesByExtent(XExtent extent, 
+        public static List<SelectResult> SelectFeaturesByExtent(XExtent extent,
             List<XFeature> features)
         {
             List<SelectResult> selection = new List<SelectResult>();
@@ -97,12 +113,9 @@ namespace XGIS
             XExtent extent = new XExtent(vertex.x - tolerance, vertex.x + tolerance,
                 vertex.y - tolerance, vertex.y + tolerance);
 
-
-
-
             foreach (XFeature feature in features)
             {
-                if (!extent.IntersectOrNot(feature.spatial.extent))                     
+                if (!extent.IntersectOrNot(feature.spatial.extent))
                     continue;
 
                 double distance = feature.spatial.Distance(vertex);
@@ -110,7 +123,6 @@ namespace XGIS
                     selection.Add(new SelectResult(feature, distance));
             }
             selection.Sort((x, y) => x.criterion.CompareTo(y.criterion));
-
 
             return selection;
         }
@@ -138,7 +150,7 @@ namespace XGIS
             bw.Write(XTools.FromStructToBytes(mfh));
         }
 
-        static List<Type> AllTypes = new List<Type>{            
+        static List<Type> AllTypes = new List<Type>{
             typeof(bool),
             typeof(byte),
             typeof(char),
@@ -207,7 +219,7 @@ namespace XGIS
             }
         }
 
-        static void ReadFeatures(XVectorLayer layer, 
+        static void ReadFeatures(XVectorLayer layer,
             BinaryReader br,
             int FeatureCount)
         {
@@ -226,8 +238,6 @@ namespace XGIS
                 layer.AddFeature(feature);
             }
         }
-
-
 
         public static void WriteFile(XVectorLayer layer, string filename)
         {
@@ -269,11 +279,7 @@ namespace XGIS
             fsr.Close();
             return layer;
         }
-
     }
-
-
-
 
     public class XShapefile
     {
@@ -345,7 +351,7 @@ namespace XGIS
             //字段区和结束标志
             int FieldCount = (dh.HeaderLength - 33) / 32;
             br.ReadBytes(32 * FieldCount + 1); //跳过字段区及结束标志字节
-            
+
             //读实际的属性值
             List<XAttribute> attributes = new List<XAttribute>();
             for (int i = 0; i < dh.RecordCount; i++) //开始读取具体数值
@@ -378,8 +384,6 @@ namespace XGIS
             FileStream fsr = new FileStream(shpfilename, FileMode.Open);
             BinaryReader br = new BinaryReader(fsr);
 
-
-     
             ShapefileHeader sfh = ReadFileHeader(br);
             SHAPETYPE ShapeType = Int2Shapetype[sfh.ShapeType];
             XVectorLayer layer = new XVectorLayer(shpfilename, ShapeType);
@@ -505,7 +509,6 @@ namespace XGIS
 
     public class XTools
     {
-        //distance between Point C and segment AB
         public static double DistanceBetweenPointAndSegment(
             XVertex A, XVertex B, XVertex C)
         {
@@ -572,12 +575,6 @@ namespace XGIS
             return length;
         }
 
-        /// <summary>
-        /// 从文件中读取字节数组，根据输入的结构体定义，生成一个有内容的结构体实例
-        /// </summary>
-        /// <param name="br"></param>
-        /// <param name="type"></param>
-        /// <returns></returns>
         public static Object FromBytes2Struct(BinaryReader br, Type type)
         {
             byte[] buff = br.ReadBytes(Marshal.SizeOf(type));
@@ -616,7 +613,7 @@ namespace XGIS
             byte[] sbytes = br.ReadBytes(length);
             return Encoding.GetEncoding("gb2312").GetString(sbytes);
         }
-        // 1. 生成 Jenks Natural Breaks (自然间断点)
+
         public static List<double> GetJenksBreaks(List<double> dataList, int numClass)
         {
             if (dataList.Count == 0) return new List<double>();
@@ -624,7 +621,6 @@ namespace XGIS
             dataList.Sort();
             int count = dataList.Count;
 
-            // 矩阵初始化
             double[,] mat1 = new double[count + 1, numClass + 1];
             double[,] mat2 = new double[count + 1, numClass + 1];
 
@@ -668,7 +664,7 @@ namespace XGIS
             }
 
             List<double> kclass = new List<double>();
-            kclass.Add(dataList[count - 1]); // 最大值
+            kclass.Add(dataList[count - 1]);
             int k = count;
             for (int j = numClass; j >= 2; j--)
             {
@@ -677,12 +673,11 @@ namespace XGIS
                     kclass.Add(dataList[id]);
                 k = (int)mat1[k, j] - 1;
             }
-            kclass.Add(dataList[0]); // 最小值
+            kclass.Add(dataList[0]);
             kclass.Sort();
-            return kclass; // 返回的是分界点列表：Min, break1, break2, ..., Max
+            return kclass;
         }
 
-        // 2. 生成渐变色
         public static Color GetInterpolatedColor(Color start, Color end, double fraction)
         {
             if (fraction < 0) fraction = 0;
@@ -693,19 +688,12 @@ namespace XGIS
             return Color.FromArgb(r, g, b);
         }
 
-        // 3. 生成随机颜色
         private static Random rand = new Random();
         public static Color GetRandomColor()
         {
             return Color.FromArgb(rand.Next(256), rand.Next(256), rand.Next(256));
         }
-
-
-
-
     }
-
-
 
     public class XVectorLayer
     {
@@ -720,18 +708,14 @@ namespace XGIS
         public XLabelThematic LabelThematic = new XLabelThematic();
 
         public List<XFeature> SelectedFeatures = new List<XFeature>();
-        // --- 原有的 Thematic 用于 Selected 和 SingleSymbol ---
-        public XThematic UnselectedThematic; // 单一符号用这个
+        public XThematic UnselectedThematic;
         public XThematic SelectedThematic;
-        // --- 新增渲染属性 ---
-        public RenderMode ThematicMode = RenderMode.SingleSymbol; // 当前模式
-        public string RenderField = ""; // 用于渲染的字段名
 
-        // 唯一值渲染字典: 值 -> 样式
+        public RenderMode ThematicMode = RenderMode.SingleSymbol;
+        public string RenderField = "";
         public Dictionary<string, XThematic> UniqueRenderer = new Dictionary<string, XThematic>();
-
-        // 分级渲染列表
         public List<ClassBreak> ClassBreaks = new List<ClassBreak>();
+
         public XVectorLayer(string _name, SHAPETYPE _shapetype)
         {
             Name = _name;
@@ -742,10 +726,7 @@ namespace XGIS
             SelectedThematic = new XThematic(new Pen(Color.FromArgb(0, 217, 217), 1),
                 new Pen(Color.FromArgb(0, 230, 230), 3),
                 new Pen(selectionFillColor, 1), new SolidBrush(selectionFillColor), 5);
-
         }
-
-
 
         public void SelectByVertex(XVertex vertex, double tolerance, bool modify)
         {
@@ -753,8 +734,6 @@ namespace XGIS
                 XSelect.SelectFeaturesByVertex(vertex, Features, tolerance));
             ModifySelection(fs, modify);
         }
-            
-        
 
         public void SelectByExtent(XExtent extent, bool modify)
         {
@@ -776,21 +755,18 @@ namespace XGIS
             {
                 if (!SelectedFeatures.Contains(feature))
                 {
-                    //情景2：添加入选择集
                     IncludeAll = false;
                     SelectedFeatures.Add(feature);
                 }
             }
             if (IncludeAll)
             {
-                //情景1：从选择集中移出
                 foreach (XFeature feature in features)
                 {
                     SelectedFeatures.Remove(feature);
                 }
             }
         }
-
 
         public void UpdateExtent()
         {
@@ -832,7 +808,7 @@ namespace XGIS
 
         public XFeature GetFeature(int index)
         {
-            if (index>= Features.Count) return null;
+            if (index >= Features.Count) return null;
             return Features[index];
         }
 
@@ -842,17 +818,15 @@ namespace XGIS
             UpdateExtent();
         }
 
-        // --- 核心修改：Draw 方法需要根据模式分流 ---
-        public void draw(Graphics graphics, XView view)
+        // 【核心修改】增加 symbolScale 参数，默认为 1.0f
+        public void draw(Graphics graphics, XView view, float symbolScale = 1.0f)
         {
             if (Extent == null) return;
             if (Features.Count == 0) return;
-            if (Visible == false) return; // 加上可见性判断
+            if (Visible == false) return;
 
-            // 稍微扩大一点裁剪范围，防止边缘点被切掉
             if (!Extent.IntersectOrNot(view.CurrentMapExtent)) return;
 
-            // 找到渲染字段的索引 (如果是分类或分级模式)
             int fieldIndex = -1;
             if (ThematicMode != RenderMode.SingleSymbol && RenderField != "")
             {
@@ -862,11 +836,9 @@ namespace XGIS
             for (int i = 0; i < Features.Count; i++)
             {
                 XFeature feature = Features[i];
-                // 空间过滤
                 if (!feature.spatial.extent.IntersectOrNot(view.CurrentMapExtent)) continue;
 
-                // 决定使用哪个样式
-                XThematic currentThematic = UnselectedThematic; // 默认
+                XThematic currentThematic = UnselectedThematic;
 
                 if (SelectedFeatures.Contains(feature))
                 {
@@ -874,7 +846,6 @@ namespace XGIS
                 }
                 else
                 {
-                    // 根据渲染模式选择样式
                     if (ThematicMode == RenderMode.UniqueValues && fieldIndex != -1)
                     {
                         string val = feature.getAttribute(fieldIndex).ToString();
@@ -885,11 +856,9 @@ namespace XGIS
                     }
                     else if (ThematicMode == RenderMode.GraduatedSymbols && fieldIndex != -1)
                     {
-                        // 获取数值
                         try
                         {
                             double val = Convert.ToDouble(feature.getAttribute(fieldIndex));
-                            // 查找所在的级别
                             foreach (var cb in ClassBreaks)
                             {
                                 if (val >= cb.MinValue && val <= cb.MaxValue)
@@ -899,12 +868,12 @@ namespace XGIS
                                 }
                             }
                         }
-                        catch { /* 数值转换失败就用默认 */ }
+                        catch { }
                     }
                 }
 
-                // 绘制
-                feature.draw(graphics, view, LabelOrNot, LabelIndex, currentThematic, this.LabelThematic);
+                // 传递 symbolScale 参数
+                feature.draw(graphics, view, LabelOrNot, LabelIndex, currentThematic, this.LabelThematic, symbolScale);
             }
         }
         public int GetFieldIndex(string fieldName)
@@ -915,28 +884,12 @@ namespace XGIS
             }
             return -1;
         }
-
-    }
-    public class ClassBreak
-    {
-        public double MinValue;
-        public double MaxValue;
-        public XThematic Thematic;
-        public string Label; // 例如 "0 - 100"
-    }
-    // 1. 定义渲染模式枚举
-    public enum RenderMode
-    {
-        SingleSymbol,   // 单一符号
-        UniqueValues,   // 唯一值 (分类)
-        GraduatedSymbols // 分级符号 (数量)
     }
 
     public class XField
     {
         public Type datatype;
         public string name;
-
         public int DBFFieldLength;
 
         public XField(BinaryReader br)
@@ -946,20 +899,16 @@ namespace XGIS
 
             DBFFieldLength = dbfField.LengthOfField;
 
-
             byte[] bs = new byte[] {dbfField.b1,dbfField.b2,dbfField.b3, dbfField.b4,dbfField.b5,
                 dbfField.b6,dbfField.b7,dbfField.b8,dbfField.b9,dbfField.b10,dbfField.b11};
 
-
-
             name = XTools.BytesToString(bs).Trim();
-
 
             switch ((char)dbfField.FieldType)
             {
                 case 'N':
                     if (dbfField.NumberOfDecimalPlaces == 0)
-                        datatype = typeof(int);// Type.GetType("System.Int32");
+                        datatype = typeof(int);
                     else
                         datatype = Type.GetType("System.Double");
                     break;
@@ -990,7 +939,6 @@ namespace XGIS
                 return int.Parse(sv);
             return sv;
         }
-
     }
 
     public enum SHAPETYPE
@@ -1009,41 +957,31 @@ namespace XGIS
     {
         public XExtent CurrentMapExtent;
         Rectangle MapWindowSize;
-        public XExtent TargetExtent = null; // 目标范围
+        public XExtent TargetExtent = null;
         double MapMinX, MapMinY;
         int WinW, WinH;
         double MapW, MapH;
         double ScaleX, ScaleY;
 
-
         public XView(XExtent _Extent, Rectangle _Rectangle)
         {
-          Update(_Extent, _Rectangle);
+            Update(_Extent, _Rectangle);
         }
         public void Update(XExtent _extent, Rectangle _rectangle)
         {
-            //给地图窗口赋值
             MapWindowSize = _rectangle;
-            //计算地图窗口的宽度
             WinW = MapWindowSize.Width;
-            //计算地图窗口的高度
             WinH = MapWindowSize.Height;
-            //计算比例尺
             ScaleX = ScaleY = Math.Max(_extent.GetWidth() / WinW, _extent.GetHeight() / WinH);
-            //根据比例尺计算实际的地图范围的宽度
             MapW = ScaleX * WinW;
-            //根据比例尺计算实际的地图范围的高度
             MapH = ScaleY * WinH;
-            //获得地图范围中心
             XVertex center = _extent.GetCenter();
-            //根据地图范围的中心，计算最小坐标极值
             MapMinX = center.x - MapW / 2;
             MapMinY = center.y - MapH / 2;
-            //计算当前显示的实际地图范围
             CurrentMapExtent = new XExtent(
-                MapMinX, 
-                MapMinX + MapW, 
-                MapMinY, 
+                MapMinX,
+                MapMinX + MapW,
+                MapMinY,
                 MapMinY + MapH);
         }
 
@@ -1051,7 +989,6 @@ namespace XGIS
         {
             CurrentMapExtent = _Extent;
             MapWindowSize = _Rectangle;
-
             MapMinX = CurrentMapExtent.GetMinX();
             MapMinY = CurrentMapExtent.GetMinY();
             WinW = MapWindowSize.Width;
@@ -1103,7 +1040,6 @@ namespace XGIS
             {
                 TargetExtent.OffsetCenter(fromV, toV);
             }
-
             Update(CurrentMapExtent, MapWindowSize);
         }
 
@@ -1118,58 +1054,34 @@ namespace XGIS
 
         public void ZoomByScreenPoint(Point screenPoint, bool isZoomIn)
         {
-            // 1. 获取鼠标当前指向的地理坐标 (这个点就是我们的锚点)
             XVertex mouseLocation = ToMapVertex(screenPoint);
-
-            // 2. 确定缩放比例
-            // 这里我们借用 Extent 里的 ZoomFactor 概念，或者自己定义
-            // 如果是放大，比例就是 1.2；如果是缩小，比例就是 1 / 1.2
             double zoomFactor = 1.2;
             double ratio = isZoomIn ? zoomFactor : (1 / zoomFactor);
-
-            // 3. 让 Extent 以这个点为中心进行缩放
             CurrentMapExtent.ZoomToCenter(mouseLocation, ratio);
-
-            // 4. 更新视图 (这一步很重要，重新计算 Scale 等参数)
             Update(CurrentMapExtent, MapWindowSize);
         }
-        // 修改/添加设定目标的方法
+
         public void SetZoomTarget(Point screenPoint, bool isZoomIn)
         {
-            // 如果 TargetExtent 还没初始化，就先等于当前范围
             if (TargetExtent == null) TargetExtent = new XExtent(CurrentMapExtent);
-
-            // 1. 获取鼠标当前指向的地理坐标 (基于当前视图，或者基于正在变化的目标视图)
-            // 为了连贯性，我们通常基于当前的 TargetExtent 进行计算，或者简化处理
             XVertex mouseLocation = ToMapVertex(screenPoint);
-
-            // 2. 缩放系数 (建议改成 1.2 或 1.5，不要太大，因为动画会显得缩放很大)
             double zoomFactor = 1.5;
             double ratio = isZoomIn ? zoomFactor : (1 / zoomFactor);
-
-            // 3. 计算目标范围（注意：是对 TargetExtent 进行操作，而不是 CurrentMapExtent）
             TargetExtent.ZoomToCenter(mouseLocation, ratio);
         }
 
-        // 每一帧动画调用的方法
         public bool UpdateBuffer()
         {
             if (TargetExtent == null) return true;
-
-            // 让当前范围向目标范围移动，速度 0.3 (即每帧走剩余路程的30%)
             bool finished = CurrentMapExtent.InterpolateTo(TargetExtent, 0.5);
-
-            // 【关键】更新视图参数（ScaleX, ScaleY等），否则画面会错位
             Update(CurrentMapExtent, MapWindowSize);
-
             return finished;
         }
     }
+
     public class XExtent
     {
         public XVertex bottomLeft, upRight;
-
-        
         double ZoomFactor = 1.2;
         double MovingFactor = 0.25;
 
@@ -1181,25 +1093,20 @@ namespace XGIS
                                 Math.Min(_anotherCorner.y, _oneCorner.y));
         }
 
-
         public XExtent(double x1, double x2, double y1, double y2)
         {
-            double minX=Math.Min(x1,x2), 
-                maxX=Math.Max(x1,x2), 
-                minY=Math.Min(y1, y2), 
-                maxY=Math.Max(y1,y2);
-            bottomLeft =new XVertex(minX, minY);
-            upRight=new XVertex(maxX, maxY);
+            double minX = Math.Min(x1, x2),
+                maxX = Math.Max(x1, x2),
+                minY = Math.Min(y1, y2),
+                maxY = Math.Max(y1, y2);
+            bottomLeft = new XVertex(minX, minY);
+            upRight = new XVertex(maxX, maxY);
         }
 
-        /// <summary>
-        /// copy extent from another one
-        /// </summary>
-        /// <param name="extent"></param>
         public XExtent(XExtent extent)
         {
             bottomLeft = new XVertex(extent.bottomLeft);
-            upRight =new XVertex(extent.upRight);
+            upRight = new XVertex(extent.upRight);
         }
 
         public void ChangeExtent(XExploreActions action)
@@ -1222,8 +1129,8 @@ namespace XGIS
                     break;
                 case XExploreActions.moveup:
                     double offset = GetHeight() * MovingFactor;
-                    newminy = GetMinY() -offset;
-                    newmaxy = GetMaxY() -offset;
+                    newminy = GetMinY() - offset;
+                    newmaxy = GetMaxY() - offset;
                     break;
                 case XExploreActions.movedown:
                     newminy = GetMinY() + GetHeight() * MovingFactor;
@@ -1246,44 +1153,34 @@ namespace XGIS
 
         public void ZoomToCenter(XVertex center, double ratio)
         {
-            // ratio > 1 表示放大 (Zoom In)，范围变小
-            // ratio < 1 表示缩小 (Zoom Out)，范围变大
-
-            // 核心算法：新的边界 = 中心点 - (中心点 - 旧边界) / 比例
-            // 这样可以保证 center 这个点的坐标在缩放前后保持不变
             bottomLeft.x = center.x - (center.x - bottomLeft.x) / ratio;
             bottomLeft.y = center.y - (center.y - bottomLeft.y) / ratio;
-
             upRight.x = center.x + (upRight.x - center.x) / ratio;
             upRight.y = center.y + (upRight.y - center.y) / ratio;
         }
-        // 在 XExtent 类中添加
+
         public bool InterpolateTo(XExtent target, double speed)
         {
-            // speed 是移动速度，0.1 到 0.5 之间比较合适
-            // 分别计算四个边界的差值
             double diffMinX = target.GetMinX() - this.GetMinX();
             double diffMinY = target.GetMinY() - this.GetMinY();
             double diffMaxX = target.GetMaxX() - this.GetMaxX();
             double diffMaxY = target.GetMaxY() - this.GetMaxY();
 
-            // 如果差距已经非常小（小于千分之一），就直接到位，并告诉外面“完事了”
             if (Math.Abs(diffMinX) < 0.0000001 && Math.Abs(diffMinY) < 0.0000001)
             {
                 this.bottomLeft.x = target.bottomLeft.x;
                 this.bottomLeft.y = target.bottomLeft.y;
                 this.upRight.x = target.upRight.x;
                 this.upRight.y = target.upRight.y;
-                return true; // 动画结束
+                return true;
             }
 
-            // 否则，每次只走差值的 speed 倍 (渐进趋近算法)
             this.bottomLeft.x += diffMinX * speed;
             this.bottomLeft.y += diffMinY * speed;
             this.upRight.x += diffMaxX * speed;
             this.upRight.y += diffMaxY * speed;
 
-            return false; // 动画还没结束
+            return false;
         }
         internal double GetHeight()
         {
@@ -1319,15 +1216,15 @@ namespace XGIS
         {
             return !(
                 GetMaxX() < extent.GetMinX() ||
-                GetMinX() > extent.GetMaxX()||
-                GetMaxY() < extent.GetMinY() || 
+                GetMinX() > extent.GetMaxX() ||
+                GetMaxY() < extent.GetMinY() ||
                 GetMinY() > extent.GetMaxY()
                 );
         }
 
         internal XVertex GetCenter()
         {
-            return new XVertex(GetMinX()+GetWidth()/2, GetMinY()+GetHeight()/2);
+            return new XVertex(GetMinX() + GetWidth() / 2, GetMinY() + GetHeight() / 2);
         }
 
         internal void Merge(XExtent extent)
@@ -1346,9 +1243,9 @@ namespace XGIS
             double width = GetWidth();
             double height = GetHeight();
             bottomLeft.x = center.x - width / 2;
-            bottomLeft.y=center.y - height / 2;
-            upRight.x=center.x + width / 2;
-            upRight.y=center.y + height / 2;
+            bottomLeft.y = center.y - height / 2;
+            upRight.x = center.x + width / 2;
+            upRight.y = center.y + height / 2;
         }
 
         internal bool Includes(XExtent extent)
@@ -1365,15 +1262,11 @@ namespace XGIS
     {
         public XVertex centroid;
         public XExtent extent;
-
         public List<XVertex> vertexes;
 
         public XSpatial(List<XVertex> _vertexes)
         {
-            //为节点数组赋值
             vertexes = _vertexes;
-
-            //计算中心点centroid
             double x_cen = 0, y_cen = 0;
             foreach (XVertex v in _vertexes)
             {
@@ -1384,7 +1277,6 @@ namespace XGIS
             y_cen /= _vertexes.Count;
             centroid = new XVertex(x_cen, y_cen);
 
-            //计算空间范围extent
             double x_min = double.MaxValue;
             double y_min = double.MaxValue;
             double x_max = double.MinValue;
@@ -1401,11 +1293,12 @@ namespace XGIS
                 new XVertex(x_max, y_max));
         }
 
-        public abstract void draw(Graphics graphics, XView view, XThematic thematic);
+        // 【核心修改】增加 symbolScale
+        public abstract void draw(Graphics graphics, XView view, XThematic thematic, float symbolScale);
 
         internal abstract double Distance(XVertex onevertex);
     }
-    
+
     public class XAttribute
     {
         public ArrayList values;
@@ -1504,43 +1397,34 @@ namespace XGIS
             return values[index];
         }
 
-        // 注意参数变了，现在传入 XLabelThematic
-        public void draw(Graphics g, XView view, XVertex location, XLabelThematic labelThematic)
+        // 【核心修改】 增加 symbolScale，用于调整描边宽度
+        public void draw(Graphics g, XView view, XVertex location, XLabelThematic labelThematic, float symbolScale = 1.0f)
         {
-            // 1. 获取要显示的文字
             string text = GetValue(labelThematic.LabelIndex).ToString();
             if (string.IsNullOrEmpty(text)) return;
 
-            // 2. 计算屏幕坐标
             Point screenPoint = view.ToScreenPoint(location);
 
-            // 3. 【核心】使用 GraphicsPath 实现描边
-            // 这种方法比简单的 DrawString 稍微耗一点点性能，但效果最好
             using (System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath())
             {
-                // 将文字添加到路径中
-                // 参数：文本, 字体系列, 字体风格, 字体大小(emSize), 位置, 格式
+                // Font 大小会自动适配 DPI，不需要 symbolScale
                 path.AddString(
                     text,
                     labelThematic.LabelFont.FontFamily,
                     (int)labelThematic.LabelFont.Style,
-                    // 注意：AddString 的大小单位通常是像素，需要转换一下，或者直接试一个倍数
                     g.DpiY * labelThematic.LabelFont.SizeInPoints / 72,
                     screenPoint,
                     StringFormat.GenericDefault);
 
-                // A. 如果需要描边，先画粗的轮廓
                 if (labelThematic.UseOutline)
                 {
-                    using (Pen outlinePen = new Pen(labelThematic.OutlineColor, labelThematic.OutlineWidth))
+                    // 描边宽度需要 scaling
+                    using (Pen outlinePen = new Pen(labelThematic.OutlineColor, labelThematic.OutlineWidth * symbolScale))
                     {
-                        // 开启圆角连接，防止笔画尖角刺出来
                         outlinePen.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
                         g.DrawPath(outlinePen, path);
                     }
                 }
-
-                // B. 最后填充文字本身的颜色
                 g.FillPath(labelThematic.LabelBrush, path);
             }
         }
@@ -1557,13 +1441,14 @@ namespace XGIS
             attribute = _attribute;
         }
 
-        public void draw(Graphics graphics, XView view, 
-            bool DrawAttributeOrNot, int attributeIndex, XThematic thematic, XLabelThematic labelThematic)
+        // 【核心修改】 传递 symbolScale
+        public void draw(Graphics graphics, XView view,
+            bool DrawAttributeOrNot, int attributeIndex, XThematic thematic, XLabelThematic labelThematic, float symbolScale)
         {
-            spatial.draw(graphics, view, thematic);
+            spatial.draw(graphics, view, thematic, symbolScale);
             if (DrawAttributeOrNot)
             {
-                attribute.draw(graphics, view, spatial.centroid, labelThematic);
+                attribute.draw(graphics, view, spatial.centroid, labelThematic, symbolScale);
             }
         }
 
@@ -1581,17 +1466,13 @@ namespace XGIS
 
     public class XVertex
     {
-        public double x; 
+        public double x;
         public double y;
 
-        /// <summary>
-        /// copy
-        /// </summary>
-        /// <param name="v"></param>
         public XVertex(XVertex v)
         {
-            x= v.x;
-            y= v.y;
+            x = v.x;
+            y = v.y;
         }
 
         public XVertex(double x, double y)
@@ -1618,7 +1499,7 @@ namespace XGIS
 
         internal bool IsSame(XVertex b)
         {
-            return (Math.Abs(x-b.x)+Math.Abs(y-b.y))<0.0000001;
+            return (Math.Abs(x - b.x) + Math.Abs(y - b.y)) < 0.0000001;
         }
 
         public XVertex(BinaryReader br)
@@ -1634,21 +1515,23 @@ namespace XGIS
         public XVertex Location;
     }
 
-    public class XPointSpatial: XSpatial
+    public class XPointSpatial : XSpatial
     {
         public XPointSpatial(XVertex location) : base(new List<XVertex> { location })
         {
-
         }
 
-        public override void draw(Graphics graphics, XView view, XThematic thematic)
+        // 【核心修改】 应用 symbolScale 到半径
+        public override void draw(Graphics graphics, XView view, XThematic thematic, float symbolScale)
         {
             Point point = view.ToScreenPoint(centroid);
-            int radius = thematic.PointRadius;
+            int radius = (int)(thematic.PointRadius * symbolScale);
+            if (radius < 1) radius = 1;
+
             graphics.FillEllipse(thematic.PointBrush,
                 new Rectangle(
                     point.X - radius, point.Y - radius,
-                radius*2, radius*2));
+                radius * 2, radius * 2));
         }
 
         internal override double Distance(XVertex onevertex)
@@ -1657,7 +1540,7 @@ namespace XGIS
         }
     }
 
-    public class XLineSpatial: XSpatial
+    public class XLineSpatial : XSpatial
     {
         public double length;
 
@@ -1666,11 +1549,14 @@ namespace XGIS
             length = XTools.CalculateLength(_vertexes);
         }
 
-        public override void draw(Graphics graphics, XView view, XThematic thematic)
+        // 【核心修改】 应用 symbolScale 到线宽
+        public override void draw(Graphics graphics, XView view, XThematic thematic, float symbolScale)
         {
             Point[] points = view.ToScreenPoints(vertexes).ToArray();
-            graphics.DrawLines(thematic.LinePen, points);
-
+            using (Pen p = new Pen(thematic.LinePen.Color, thematic.LinePen.Width * symbolScale))
+            {
+                graphics.DrawLines(p, points);
+            }
         }
         internal override double Distance(XVertex vertex)
         {
@@ -1691,14 +1577,18 @@ namespace XGIS
         double area;
         public XPolygonSpatial(List<XVertex> _vertexes) : base(_vertexes)
         {
-            area=XTools.CalculateArea(_vertexes);
+            area = XTools.CalculateArea(_vertexes);
         }
 
-        public override void draw(Graphics graphics, XView view, XThematic thematic)
+        // 【核心修改】 应用 symbolScale 到边框宽度
+        public override void draw(Graphics graphics, XView view, XThematic thematic, float symbolScale)
         {
             Point[] points = view.ToScreenPoints(vertexes).ToArray();
             graphics.FillPolygon(thematic.PolygonBrush, points);
-            graphics.DrawPolygon(thematic.PolygonPen, points);
+            using (Pen p = new Pen(thematic.PolygonPen.Color, thematic.PolygonPen.Width * symbolScale))
+            {
+                graphics.DrawPolygon(p, points);
+            }
         }
 
         internal override double Distance(XVertex vertex)
@@ -1720,80 +1610,55 @@ namespace XGIS
 
         }
 
-        /// <summary>
-        /// 判断一个点和一个多边形的关系，如果多边形包括点，则返回true，否则false
-        /// </summary>
-        /// <param name="vertex"></param>
-        /// <param name="inside">如果点在多边形的边线上，则为false，否则为true</param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
         private bool Contains(XVertex vertex, out bool inside)
         {
-            //交点的数量
             int count = 0;
 
             for (int i = 0; i < vertexes.Count; i++)
             {
-                //满足情况3
                 if (vertexes[i].IsSame(vertex))
                 {
                     inside = false;
                     return true;
                 }
-                //由序号为i及next的两个节点构成一条线段，一般情况下next为i+1，
-                //而针对最后一条线段，i为vertexes.Count-1，next为0
                 int next = (i + 1) % vertexes.Count;
-                //确定线段的坐标极值
                 double minX = Math.Min(vertexes[i].x, vertexes[next].x);
                 double minY = Math.Min(vertexes[i].y, vertexes[next].y);
                 double maxX = Math.Max(vertexes[i].x, vertexes[next].x);
                 double maxY = Math.Max(vertexes[i].y, vertexes[next].y);
-                //如果线段是平行于射线的。
                 if (minY == maxY)
                 {
-                    //满足情况2
                     if (minY == vertex.y && vertex.x >= minX && vertex.x <= maxX)
                     {
                         inside = false;
                         return true;
                     }
-                    //满足情况1或者射线与线段平行无交点
                     else continue;
                 }
-                //点在线段坐标极值之外，不可能有交点
                 if (vertex.x > maxX || vertex.y > maxY || vertex.y < minY)
                     continue;
-                //计算交点横坐标，纵坐标无需计算，就是vertex.y
                 double X0 = vertexes[i].x + (vertex.y - vertexes[i].y) *
                     (vertexes[next].x - vertexes[i].x) / (vertexes[next].y - vertexes[i].y);
-                //交点在射线反方向，按无交点计算
                 if (X0 < vertex.x) continue;
-                //交点即为vertex，且在线段上
                 if (X0 == vertex.x)
                 {
                     inside = false;
                     return true;
                 }
-                //射线穿过线段下端点，不记数, 情况4
                 if (vertex.y == minY) continue;
-                //其他情况下，交点数加一
                 count++;
             }
-            //根据交点数量确定面是否包括点
             inside = true;
             return count % 2 != 0;
         }
     }
+
     public class XTileLayer
     {
         public string Name = "Basemap";
         public bool Visible = true;
         private string UrlTemplate;
-
-        // 使用 Dictionary 缓存图片 (Key: "z/y/x")
         private Dictionary<string, Image> tileCache = new Dictionary<string, Image>();
-
-        // 记录正在下载的 Key，防止重复请求
         private List<string> downloading = new List<string>();
 
         public XTileLayer(string urlTemplate)
@@ -1804,25 +1669,18 @@ namespace XGIS
         public void Draw(Graphics g, XView view)
         {
             if (!Visible) return;
-
-            // 1. 计算当前需要的 Zoom Level
             int zoom = CalculateZoomLevel(view);
-
-            // 2. 计算视野范围内的瓦片索引
             GetTileBounds(view.CurrentMapExtent, zoom, out int minX, out int maxX, out int minY, out int maxY);
             int maxTileIndex = (1 << zoom) - 1;
 
-            // 限制范围
             if (minX < 0) minX = 0;
             if (maxX > maxTileIndex) maxX = maxTileIndex;
             if (minY < 0) minY = 0;
             if (maxY > maxTileIndex) maxY = maxTileIndex;
 
-            // 熔断保护
             int totalTiles = (maxX - minX + 1) * (maxY - minY + 1);
             if (totalTiles > 100 || totalTiles < 0) return;
 
-            // 3. 遍历并绘制
             for (int x = minX; x <= maxX; x++)
             {
                 for (int y = minY; y <= maxY; y++)
@@ -1830,56 +1688,41 @@ namespace XGIS
                     string key = $"{zoom}/{y}/{x}";
                     Rectangle screenRect = GetScreenRect(x, y, zoom, view);
 
-                    // A. 如果缓存里有当前层级的图，直接画（最清晰）
                     if (tileCache.ContainsKey(key))
                     {
                         try
                         {
                             g.DrawImage(tileCache[key], screenRect);
                         }
-                        catch { /* 忽略多线程导致的偶尔图片被占用问题 */ }
+                        catch { }
                     }
-                    // B. 如果没有，先去下载，同时画父级瓦片做占位（由模糊变清晰）
                     else
                     {
                         if (!downloading.Contains(key))
                         {
                             DownloadTileAsync(x, y, zoom, key);
                         }
-
-                        // 【核心优化】绘制父级瓦片占位
-                        // 向上找最多 5 层，找到最近的一个长辈
                         bool foundParent = false;
                         for (int i = 1; i <= 5; i++)
                         {
                             int pZ = zoom - i;
-                            if (pZ < 0) break; // 到顶了
-
-                            // 计算父级瓦片的坐标 (位运算：除以 2 的 i 次方)
+                            if (pZ < 0) break;
                             int pX = x >> i;
                             int pY = y >> i;
                             string pKey = $"{pZ}/{pY}/{pX}";
 
                             if (tileCache.ContainsKey(pKey))
                             {
-                                // 找到了爸爸(或爷爷)，把它画出来
                                 DrawParentTile(g, tileCache[pKey], x, y, zoom, pX, pY, pZ, screenRect);
                                 foundParent = true;
-                                break; // 只要找到最近的一个就行，不用再往上找了
+                                break;
                             }
-                        }
-
-                        // 如果连祖宗都没有，那就只能留白了，或者画一个灰色框提示
-                        if (!foundParent)
-                        {
-                            // g.DrawRectangle(Pens.LightGray, screenRect); // 可选：画个淡框表示这里有图
                         }
                     }
                 }
             }
         }
 
-        // 【新增】核心算法：从父瓦片中抠出子瓦片对应的区域并拉伸绘制
         private void DrawParentTile(Graphics g, Image parentImg,
             int childX, int childY, int childZ,
             int parentX, int parentY, int parentZ,
@@ -1887,31 +1730,16 @@ namespace XGIS
         {
             try
             {
-                // 1. 计算层级差
                 int diff = childZ - parentZ;
-
-                // 2. 计算子瓦片在父瓦片中的相对大小 (256 / 2^diff)
-                // 比如差1级，子图占父图的 1/2 (128px)；差2级，占 1/4 (64px)
                 int srcSize = 256 >> diff;
-
-                // 3. 计算子瓦片在父瓦片中的相对偏移
-                // 算法：(子坐标 - 父坐标 * 放大倍数) * 子块大小
-                // 这里的位移运算 (parentX << diff) 等同于 parentX * 2^diff
                 int offsetX = (childX - (parentX << diff)) * srcSize;
                 int offsetY = (childY - (parentY << diff)) * srcSize;
-
                 Rectangle srcRect = new Rectangle(offsetX, offsetY, srcSize, srcSize);
-
-                // 4. 绘图：把父图的一小块(srcRect)，拉伸画到屏幕的目标区域(destRect)
                 g.DrawImage(parentImg, destRect, srcRect, GraphicsUnit.Pixel);
             }
-            catch
-            {
-                // 容错处理
-            }
+            catch { }
         }
 
-        // 异步下载瓦片 (保持不变，但增加 Refresh 通知)
         private async void DownloadTileAsync(int x, int y, int z, string key)
         {
             downloading.Add(key);
@@ -1936,14 +1764,12 @@ namespace XGIS
                     }
                 }
             }
-            catch { /* 下载失败忽略 */ }
+            catch { }
             finally
             {
                 downloading.Remove(key);
             }
         }
-
-        // ================= 工具算法区 (保持不变) =================
 
         private int CalculateZoomLevel(XView view)
         {
@@ -1986,13 +1812,7 @@ namespace XGIS
 
             Point p1 = view.ToScreenPoint(new XVertex(minLon, maxLat));
             Point p2 = view.ToScreenPoint(new XVertex(maxLon, minLat));
-
-            // 稍微加一点宽高(1px)以防止瓦片之间出现白线缝隙
             return new Rectangle(p1.X, p1.Y, p2.X - p1.X + 1, p2.Y - p1.Y + 1);
         }
-
     }
-
-
 }
-

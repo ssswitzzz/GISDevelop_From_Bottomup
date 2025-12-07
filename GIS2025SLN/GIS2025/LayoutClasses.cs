@@ -14,12 +14,10 @@ namespace XGIS
         public RectangleF Bounds;
         public bool IsSelected = false;
         public string Name = "Element";
-        public bool Visible = true; // 可见性开关
+        public bool Visible = true;
 
-        // 核心绘制方法
         public abstract void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY);
 
-        // 辅助：将毫米转换为屏幕像素
         protected RectangleF MMToPixel(float dpi, float zoom, float offX, float offY)
         {
             float pixelPerMM = dpi / 25.4f;
@@ -34,7 +32,6 @@ namespace XGIS
         {
             if (IsSelected)
             {
-                // 绘制选中框，稍微外扩一点，以免盖住内容
                 using (Pen p = new Pen(Color.Cyan, 2) { DashStyle = DashStyle.Dash })
                 {
                     g.DrawRectangle(p, rect.X - 2, rect.Y - 2, rect.Width + 4, rect.Height + 4);
@@ -57,10 +54,9 @@ namespace XGIS
         public XMapFrame(RectangleF bounds, List<XVectorLayer> layers, XTileLayer baseLayer, XExtent currentExtent)
         {
             this.Bounds = bounds;
-            this.Name = "地图框"; // 改个中文名方便看
+            this.Name = "地图框";
             this.Layers = layers;
             this.BaseLayer = baseLayer;
-            // 初始时，稳定范围 = 传入的范围
             this.StableExtent = new XExtent(currentExtent);
             this.FrameView = new XView(new XExtent(currentExtent), new Rectangle(0, 0, 1, 1));
         }
@@ -72,70 +68,68 @@ namespace XGIS
             RectangleF screenRectF = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             Rectangle screenRect = new Rectangle((int)screenRectF.X, (int)screenRectF.Y, (int)screenRectF.Width, (int)screenRectF.Height);
 
-            // 【核心修复逻辑】
-            // 每次绘制前，强制用 StableExtent 重新计算 View，
-            // 这样无论 Frame 怎么忽大忽小，地图都会根据这个稳定的范围重新适配比例尺
             FrameView.Update(new XExtent(StableExtent), screenRect);
 
             Region oldClip = g.Clip;
             System.Drawing.Drawing2D.Matrix oldTransform = g.Transform;
 
-            // 设置裁剪区域，防止地图画出框外
             g.SetClip(screenRect);
             g.TranslateTransform(screenRect.X, screenRect.Y);
-
-            // 绘制背景
             g.FillRectangle(Brushes.White, 0, 0, screenRect.Width, screenRect.Height);
 
-            // 绘制底图
             if (BaseLayer != null && BaseLayer.Visible) BaseLayer.Draw(g, FrameView);
 
-            // 绘制矢量图层 (倒序，为了和 MapView 保持一致)
+            // 计算 DPI 缩放比例
+            float dpiScale = screenDpi / 96.0f;
+
             if (Layers != null)
             {
                 for (int i = Layers.Count - 1; i >= 0; i--)
                 {
-                    if (Layers[i].Visible) Layers[i].draw(g, FrameView);
+                    if (Layers[i].Visible) Layers[i].draw(g, FrameView, dpiScale);
                 }
             }
 
-            // 绘制经纬网
-            if (ShowGrid) DrawGrid(g, screenRect.Width, screenRect.Height, FrameView);
+            if (ShowGrid) DrawGrid(g, screenRect.Width, screenRect.Height, FrameView, dpiScale);
 
-            // 恢复绘图状态
             g.Transform = oldTransform;
             g.Clip = oldClip;
 
-            // 绘制边框
-            g.DrawRectangle(Pens.Black, screenRect);
+            // 边框加粗
+            using (Pen borderPen = new Pen(Color.Black, 1 * dpiScale))
+            {
+                g.DrawRectangle(borderPen, screenRect);
+            }
 
-            // 绘制选中状态
             DrawSelectionBox(g, screenRectF);
         }
 
-        private void DrawGrid(Graphics g, float w, float h, XView view)
+        private void DrawGrid(Graphics g, float w, float h, XView view, float dpiScale)
         {
+            if (view.CurrentMapExtent == null) return;
             XExtent extent = view.CurrentMapExtent;
-            if (extent == null) return;
 
-            int targetTickCount = (int)(w / 100.0);
+            int targetTickCount = (int)(w / (100.0 * dpiScale));
             if (targetTickCount < 2) targetTickCount = 2;
             double step = XGISMath.CalculateNiceInterval(extent.GetWidth(), targetTickCount);
 
             double startX = Math.Ceiling(extent.GetMinX() / step) * step;
             double startY = Math.Ceiling(extent.GetMinY() / step) * step;
 
-            using (Pen p = new Pen(Color.Gray, 1) { DashStyle = DashStyle.Dot })
+            using (Pen p = new Pen(Color.Gray, 1 * dpiScale) { DashStyle = DashStyle.Dot })
             using (Font f = new Font("Arial", 8))
             using (SolidBrush b = new SolidBrush(Color.Black))
             {
+                float textOffX = 15 * dpiScale;
+                float textOffY = 6 * dpiScale;
+
                 for (double x = startX; x <= extent.GetMaxX(); x += step)
                 {
                     Point pt = view.ToScreenPoint(new XVertex(x, extent.GetMinY()));
                     if (pt.X >= 0 && pt.X <= w)
                     {
                         g.DrawLine(p, pt.X, 0, pt.X, h);
-                        g.DrawString(x.ToString("0.##") + "°", f, b, pt.X - 15, h - 15);
+                        g.DrawString(x.ToString("0.##") + "°", f, b, pt.X - textOffX, h - textOffX);
                     }
                 }
                 for (double y = startY; y <= extent.GetMaxY(); y += step)
@@ -144,7 +138,7 @@ namespace XGIS
                     if (pt.Y >= 0 && pt.Y <= h)
                     {
                         g.DrawLine(p, 0, pt.Y, w, pt.Y);
-                        g.DrawString(y.ToString("0.##") + "°", f, b, 2, pt.Y - 6);
+                        g.DrawString(y.ToString("0.##") + "°", f, b, 2 * dpiScale, pt.Y - textOffY);
                     }
                 }
             }
@@ -152,7 +146,7 @@ namespace XGIS
     }
 
     // ==========================================
-    // 3. 指北针
+    // 3. 指北针 (核心修复：去除双重缩放)
     // ==========================================
     public enum NorthArrowStyle { Simple, Circle, Star }
 
@@ -174,15 +168,20 @@ namespace XGIS
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             var state = g.Save();
 
+            // 1. 移动坐标系到指北针中心
             float centerX = screenRect.X + screenRect.Width / 2;
             float centerY = screenRect.Y + screenRect.Height / 2;
             g.TranslateTransform(centerX, centerY);
 
+            // 2. 缩放坐标系 (这步已经包含了 DPI 的放大效果)
             float size = Math.Min(screenRect.Width, screenRect.Height);
-            float scale = size / 100f;
+            float scale = size / 100f; // 假设逻辑大小为 100x100
             g.ScaleTransform(scale, scale);
 
-            using (Pen p = new Pen(Color.Black, 2))
+            // 3. 绘制
+            // 【修正】线宽设为固定值 (比如 2)，因为坐标系已经放大了，线自然会变粗
+            // 【修正】字体单位设为 Pixel，防止 GDI+ 再次根据 DPI 放大字体
+            using (Pen p = new Pen(Color.Black, 2f))
             using (SolidBrush b = new SolidBrush(Color.Black))
             {
                 switch (Style)
@@ -191,19 +190,31 @@ namespace XGIS
                         g.DrawLine(p, 0, 40, 0, -40);
                         g.DrawLine(p, 0, -40, -15, -10);
                         g.DrawLine(p, 0, -40, 15, -10);
-                        g.DrawString("N", new Font("Arial", 20, FontStyle.Bold), b, -12, -75);
+                        // Font Size 24 Pixel 大概对应屏幕上的 18-20pt，但在放大坐标系中会合适
+                        using (Font f = new Font("Arial", 24, FontStyle.Bold, GraphicsUnit.Pixel))
+                        {
+                            g.DrawString("N", f, b, -8, -75);
+                        }
                         break;
+
                     case NorthArrowStyle.Circle:
                         g.DrawEllipse(p, -45, -45, 90, 90);
                         g.FillPolygon(b, new PointF[] { new PointF(0, -40), new PointF(15, 10), new PointF(0, 0), new PointF(-15, 10) });
-                        g.DrawString("N", new Font("Times New Roman", 16, FontStyle.Bold), b, -10, -70);
+                        using (Font f = new Font("Times New Roman", 20, FontStyle.Bold, GraphicsUnit.Pixel))
+                        {
+                            g.DrawString("N", f, b, -7, -70);
+                        }
                         break;
+
                     case NorthArrowStyle.Star:
                         PointF[] star = { new PointF(0,-50), new PointF(10,-10), new PointF(50,0), new PointF(10,10),
                                           new PointF(0,50), new PointF(-10,10), new PointF(-50,0), new PointF(-10,-10)};
                         g.FillPolygon(b, star);
-                        g.DrawPolygon(Pens.Black, star);
-                        g.DrawString("N", new Font("Arial", 14, FontStyle.Bold), b, -10, -75);
+                        g.DrawPolygon(p, star);
+                        using (Font f = new Font("Arial", 18, FontStyle.Bold, GraphicsUnit.Pixel))
+                        {
+                            g.DrawString("N", f, b, -6, -75);
+                        }
                         break;
                 }
             }
@@ -237,6 +248,9 @@ namespace XGIS
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             if (LinkedMapFrame == null) return;
 
+            // 比例尺没有使用 ScaleTransform，所以这里必须乘 dpiScale
+            float dpiScale = screenDpi / 96.0f;
+
             XView view = LinkedMapFrame.FrameView;
             double mapUnitWidth = view.ToMapDistance((int)screenRect.Width);
             XVertex center = view.CurrentMapExtent.GetCenter();
@@ -248,25 +262,30 @@ namespace XGIS
             if (niceDistance >= 1000) labelText = (niceDistance / 1000).ToString("0") + " km";
             else labelText = niceDistance.ToString("0") + " m";
 
-            using (Pen p = new Pen(Color.Black, 2))
+            using (Pen p = new Pen(Color.Black, 2 * dpiScale))
             using (SolidBrush bBlack = new SolidBrush(Color.Black))
             using (SolidBrush bWhite = new SolidBrush(Color.White))
+            // 字体大小不需要乘 dpiScale，GDI+ 会自动处理 Points 单位
             using (Font f = new Font("Arial", 10 * zoomScale))
             {
                 float x = screenRect.X;
                 float y = screenRect.Y;
                 float h = screenRect.Height;
 
+                float tickH = 5 * dpiScale * zoomScale;
+                float textOffset = 2 * dpiScale * zoomScale;
+                float labelPadding = 20 * dpiScale * zoomScale;
+                float midY = y + h / 2;
+
                 switch (Style)
                 {
                     case ScaleBarStyle.Line:
-                        float midY = y + h / 2;
                         g.DrawLine(p, x, midY, x + drawWidth, midY);
-                        g.DrawLine(p, x, midY, x, midY - 5);
-                        g.DrawLine(p, x + drawWidth, midY, x + drawWidth, midY - 5);
-                        g.DrawLine(p, x + drawWidth / 2, midY, x + drawWidth / 2, midY - 5);
-                        g.DrawString("0", f, bBlack, x - 5, midY + 2);
-                        g.DrawString(labelText, f, bBlack, x + drawWidth - 20, midY + 2);
+                        g.DrawLine(p, x, midY, x, midY - tickH);
+                        g.DrawLine(p, x + drawWidth, midY, x + drawWidth, midY - tickH);
+                        g.DrawLine(p, x + drawWidth / 2, midY, x + drawWidth / 2, midY - tickH);
+                        g.DrawString("0", f, bBlack, x - tickH, midY + textOffset);
+                        g.DrawString(labelText, f, bBlack, x + drawWidth - labelPadding, midY + textOffset);
                         break;
 
                     case ScaleBarStyle.AlternatingBar:
@@ -277,15 +296,16 @@ namespace XGIS
                         g.FillRectangle(bBlack, x + 2 * segW, y + barH, segW, barH);
                         g.FillRectangle(bWhite, x + 3 * segW, y + barH, segW, barH); g.DrawRectangle(p, x + 3 * segW, y + barH, segW, barH);
                         g.DrawString("0", f, bBlack, x, y + barH * 2);
-                        g.DrawString(labelText, f, bBlack, x + drawWidth - 20, y + barH * 2);
+                        g.DrawString(labelText, f, bBlack, x + drawWidth - labelPadding, y + barH * 2);
                         break;
 
                     case ScaleBarStyle.DoubleLine:
                         float dY = y + h / 2;
-                        g.DrawRectangle(p, x, dY - 3, drawWidth, 6);
-                        g.FillRectangle(bBlack, x, dY - 3, drawWidth / 2, 6);
-                        g.DrawString("0", f, bBlack, x, dY - 20);
-                        g.DrawString(labelText, f, bBlack, x + drawWidth - 20, dY - 20);
+                        float barH2 = 6 * dpiScale * zoomScale;
+                        g.DrawRectangle(p, x, dY - barH2 / 2, drawWidth, barH2);
+                        g.FillRectangle(bBlack, x, dY - barH2 / 2, drawWidth / 2, barH2);
+                        g.DrawString("0", f, bBlack, x, dY - labelPadding);
+                        g.DrawString(labelText, f, bBlack, x + drawWidth - labelPadding, dY - labelPadding);
                         break;
                 }
             }
@@ -309,10 +329,8 @@ namespace XGIS
     public class XTextElement : XLayoutElement
     {
         public string Text = "文本";
-        public Font Font = new Font("宋体", 12); // 默认宋体
+        public Font Font = new Font("宋体", 12);
         public Color Color = Color.Black;
-
-        // 新增描边属性
         public bool UseOutline = false;
         public Color OutlineColor = Color.White;
         public float OutlineWidth = 2.0f;
@@ -328,48 +346,34 @@ namespace XGIS
         {
             if (!Visible) return;
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+            float dpiScale = screenDpi / 96.0f;
 
-            // 使用 GraphicsPath 实现高质量描边文字
             using (System.Drawing.Drawing2D.GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath())
             {
-                // 计算字体在屏幕上的实际像素大小
                 float emSize = g.DpiY * Font.SizeInPoints / 72 * zoomScale;
 
-                // 将文字添加到路径
-                path.AddString(
-                    Text,
-                    Font.FontFamily,
-                    (int)Font.Style,
-                    emSize,
-                    screenRect.Location, // 位置
-                    StringFormat.GenericDefault);
+                path.AddString(Text, Font.FontFamily, (int)Font.Style, emSize, screenRect.Location, StringFormat.GenericDefault);
 
-                // 1. 如果开启描边，先画描边 (画在底下)
                 if (UseOutline)
                 {
-                    using (Pen p = new Pen(OutlineColor, OutlineWidth * zoomScale))
+                    using (Pen p = new Pen(OutlineColor, OutlineWidth * zoomScale * dpiScale))
                     {
-                        p.LineJoin = System.Drawing.Drawing2D.LineJoin.Round; // 圆角连接，防止尖刺
+                        p.LineJoin = System.Drawing.Drawing2D.LineJoin.Round;
                         g.DrawPath(p, path);
                     }
                 }
 
-                // 2. 填充文字颜色
                 using (SolidBrush b = new SolidBrush(Color))
                 {
                     g.FillPath(b, path);
                 }
             }
-
             DrawSelectionBox(g, screenRect);
         }
     }
 
     // ==========================================
-    // 6. 图例元素 (新增)
-    // ==========================================
-    // ==========================================
-    // 6. 图例元素 (修复版：支持高 DPI 导出)
+    // 6. 图例元素 (完美高DPI版)
     // ==========================================
     public class LayoutLegend : XLayoutElement
     {
@@ -379,31 +383,25 @@ namespace XGIS
         {
             this.LinkedMapFrame = mapFrame;
             this.Name = "图例";
-            this.Bounds = new RectangleF(10, 10, 50, 80); // 默认大小 (毫米)
+            this.Bounds = new RectangleF(10, 10, 50, 80);
         }
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
         {
-            if (!Visible) return;
-            if (LinkedMapFrame == null || LinkedMapFrame.Layers == null) return;
+            if (!Visible || LinkedMapFrame == null || LinkedMapFrame.Layers == null) return;
 
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
 
-            // 1. 计算当前环境下的 1毫米 等于多少像素
             float pixelPerMM = screenDpi / 25.4f;
+            float padding = 2.0f * pixelPerMM * zoomScale;
+            float rowHeight = 7.0f * pixelPerMM * zoomScale;
+            float titleHeight = 10.0f * pixelPerMM * zoomScale;
+            float patchWidth = 8.0f * pixelPerMM * zoomScale;
+            float patchHeight = 4.0f * pixelPerMM * zoomScale;
+            float gap = 3.0f * pixelPerMM * zoomScale;
 
-            // 2. 【核心修复】所有的间距、大小都用 MM 定义，然后转为像素
-            // 这样 300 DPI 下，行高也会自动变大 3 倍，就不会挤了
-            float padding = 2.0f * pixelPerMM * zoomScale;      // 内边距 2mm
-            float rowHeight = 7.0f * pixelPerMM * zoomScale;    // 行高 7mm
-            float titleHeight = 10.0f * pixelPerMM * zoomScale; // 标题行高 10mm
-            float patchWidth = 8.0f * pixelPerMM * zoomScale;   // 符号宽 8mm
-            float patchHeight = 4.0f * pixelPerMM * zoomScale;  // 符号高 4mm
-            float gap = 3.0f * pixelPerMM * zoomScale;          // 文字和符号的间距 3mm
-
-            // 绘制背景框
             using (SolidBrush bgBrush = new SolidBrush(Color.White))
-            using (Pen borderPen = new Pen(Color.Black, 1)) // 边框线宽也可以 * zoomScale
+            using (Pen borderPen = new Pen(Color.Black, 1 * (screenDpi / 96.0f)))
             {
                 g.FillRectangle(bgBrush, screenRect);
                 g.DrawRectangle(borderPen, screenRect.X, screenRect.Y, screenRect.Width, screenRect.Height);
@@ -412,32 +410,25 @@ namespace XGIS
             float currentX = screenRect.X + padding;
             float currentY = screenRect.Y + padding;
 
-            // 3. 绘制 "图例" 标题
-            // 字体大小保持不变，GDI+ 会自动处理 DPI 缩放
             using (Font titleFont = new Font("微软雅黑", 10 * zoomScale, FontStyle.Bold))
             using (Font itemFont = new Font("微软雅黑", 9 * zoomScale))
             using (Brush textBrush = new SolidBrush(Color.Black))
             {
-                // 绘制标题
-                // 稍微往下移一点居中
                 g.DrawString("图例", titleFont, textBrush, currentX, currentY);
                 currentY += titleHeight;
 
-                // 4. 遍历图层 (倒序)
                 for (int i = LinkedMapFrame.Layers.Count - 1; i >= 0; i--)
                 {
                     XVectorLayer layer = LinkedMapFrame.Layers[i];
                     if (!layer.Visible) continue;
 
-                    // 绘制图层名称
                     g.DrawString(layer.Name, itemFont, textBrush, currentX, currentY);
                     currentY += rowHeight;
 
-                    // 绘制符号和子项
                     if (layer.ThematicMode == RenderMode.SingleSymbol)
                     {
                         DrawItem(g, layer, layer.UnselectedThematic, "所有要素", itemFont, textBrush,
-                                 currentX, currentY, patchWidth, patchHeight, gap);
+                                 currentX, currentY, patchWidth, patchHeight, gap, screenDpi);
                         currentY += rowHeight;
                     }
                     else if (layer.ThematicMode == RenderMode.UniqueValues)
@@ -445,7 +436,7 @@ namespace XGIS
                         foreach (var kvp in layer.UniqueRenderer)
                         {
                             DrawItem(g, layer, kvp.Value, kvp.Key, itemFont, textBrush,
-                                     currentX, currentY, patchWidth, patchHeight, gap);
+                                     currentX, currentY, patchWidth, patchHeight, gap, screenDpi);
                             currentY += rowHeight;
                         }
                     }
@@ -454,52 +445,43 @@ namespace XGIS
                         foreach (var cb in layer.ClassBreaks)
                         {
                             DrawItem(g, layer, cb.Thematic, cb.Label, itemFont, textBrush,
-                                     currentX, currentY, patchWidth, patchHeight, gap);
+                                     currentX, currentY, patchWidth, patchHeight, gap, screenDpi);
                             currentY += rowHeight;
                         }
                     }
 
-                    currentY += padding; // 图层之间多空一点
-
-                    // 防溢出 (可选)
+                    currentY += padding;
                     if (currentY > screenRect.Bottom) break;
                 }
             }
-
             DrawSelectionBox(g, screenRect);
         }
 
-        // 辅助：绘制单行图例项 (符号 + 文字)
         private void DrawItem(Graphics g, XVectorLayer layer, XThematic th, string label,
                               Font font, Brush brush,
-                              float x, float y, float w, float h, float gap)
+                              float x, float y, float w, float h, float gap, float dpi)
         {
-            // 1. 画符号
-            // 计算符号垂直居中
-            // 当前行高约等于 h * 1.8 左右 (根据 rowHeight 设定的)
-            // 我们简单让它向下偏移一点
             float symbolY = y + h * 0.2f;
-
-            DrawPatch(g, layer, th, x, symbolY, w, h);
-
-            // 2. 画文字
-            // 文字在符号右边
+            DrawPatch(g, layer, th, x, symbolY, w, h, dpi);
             g.DrawString(label, font, brush, x + w + gap, y);
         }
 
-        private void DrawPatch(Graphics g, XVectorLayer layer, XThematic th, float x, float y, float w, float h)
+        private void DrawPatch(Graphics g, XVectorLayer layer, XThematic th, float x, float y, float w, float h, float dpi)
         {
             if (th == null) return;
             float midY = y + h / 2;
+            float dpiScale = dpi / 96.0f;
 
             if (layer.ShapeType == SHAPETYPE.polygon)
             {
                 g.FillRectangle(th.PolygonBrush, x, y, w, h);
-                g.DrawRectangle(th.PolygonPen, x, y, w, h);
+                using (Pen p = new Pen(th.PolygonPen.Color, th.PolygonPen.Width * dpiScale))
+                    g.DrawRectangle(p, x, y, w, h);
             }
             else if (layer.ShapeType == SHAPETYPE.line)
             {
-                g.DrawLine(th.LinePen, x, midY, x + w, midY);
+                using (Pen p = new Pen(th.LinePen.Color, th.LinePen.Width * dpiScale))
+                    g.DrawLine(p, x, midY, x + w, midY);
             }
             else if (layer.ShapeType == SHAPETYPE.point)
             {
@@ -511,7 +493,9 @@ namespace XGIS
         }
     }
 
-    // 辅助数学类
+    // ==========================================
+    // 7. 辅助工具 (数学计算 & 页面)
+    // ==========================================
     public static class XGISMath
     {
         public static double CalculateNiceInterval(double range, int targetTickCount)
@@ -551,12 +535,10 @@ namespace XGIS
             float w = WidthMM * pixelPerMM * zoomScale;
             float h = HeightMM * pixelPerMM * zoomScale;
 
-            // 画纸张阴影和背景
             g.FillRectangle(Brushes.Gray, offsetX + 5, offsetY + 5, w, h);
             g.FillRectangle(Brushes.White, offsetX, offsetY, w, h);
             g.DrawRectangle(Pens.Black, offsetX, offsetY, w, h);
 
-            // 绘制所有元素 (顺序：index 0 在最下，index count-1 在最上)
             foreach (var ele in Elements)
             {
                 ele.Draw(g, screenDpi, zoomScale, offsetX, offsetY);
