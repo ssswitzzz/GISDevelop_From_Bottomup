@@ -110,6 +110,87 @@ namespace GIS2025
 
             // 更新初始视图
             view.Update(new XExtent(120, 125, 25, 35), mapBox.ClientRectangle);
+            InitButtonIcons();
+        }
+        private void InitButtonIcons()
+        {
+            // === 地图操作栏 (假设你在地图页面的按钮叫这些名字) ===
+            // 根据 explore_button_Click 推测
+            SetButtonStyle(explore_button, Properties.Resources.漫游);
+            // 根据 btnSelect_Click 推测
+            SetButtonStyle(btnSelect, Properties.Resources.选择);
+            // 根据 button_FullExtent_Click 推测
+            SetButtonStyle(button_FullExtent, Properties.Resources.全图显示);
+            // 根据 button_ReadShp_Click 推测 (如果有图标的话)
+            SetButtonStyle(button_ReadShp, Properties.Resources.shapefile); // 假设你有打开图标
+
+            // === Layout 布局工具栏 (FlowLayoutPanel 里的按钮) ===
+            // 这里的名字是你设计器里给按钮起的 (Name)
+
+            SetButtonStyle(btnAddMapFrame, Properties.Resources.地图框);
+            SetButtonStyle(btnAddNorthArrow, Properties.Resources.指北针);
+            SetButtonStyle(btnAddScaleBar, Properties.Resources.比例尺);
+            SetButtonStyle(btnAddLegend, Properties.Resources.图例);
+            SetButtonStyle(btnAddText, Properties.Resources.文本框);
+            SetButtonStyle(btnAddGrid, Properties.Resources.经纬网);
+            SetButtonStyle(btnAddExport, Properties.Resources.导出地图);
+
+            // 如果你在 Layout 页面也放了漫游和选择，记得把那两个按钮也加上
+            // 例如：
+            // SetButtonStyle(btnLayoutPan, Properties.Resources.漫游);
+            // SetButtonStyle(btnLayoutSelect, Properties.Resources.选择);
+        }
+        // 专门用来给现有按钮“穿衣服”的辅助方法
+        private void SetButtonStyle(Button btn, Image icon)
+        {
+            if (btn == null) return; // 防止按钮改名了找不到
+                                     // 1. 【关键】强制断开设计器里的 ImageList 关联
+                                     // 如果不加这句，代码里设置的 Image 大小可能会被设计器的设置覆盖
+            btn.ImageList = null;
+            int iconSize = 32;
+
+            // 调用缩放方法，把大图变成小图标
+            btn.Image = ResizeImage(icon, iconSize);
+
+
+            // 2. 关键：设置图文关系为“图片在文字上方”
+            btn.TextImageRelation = TextImageRelation.ImageAboveText;
+
+            // 3. 对齐方式调整 (图片居中，文字在底部)
+            btn.ImageAlign = ContentAlignment.BottomCenter;
+            btn.TextAlign = ContentAlignment.BottomCenter;
+
+            // 4. 美化外观 (扁平化，去边框)
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 0;
+            btn.BackColor = Color.Transparent; // 或者 Color.White
+
+            // 5. 确保高度足够 (如果设计器里拉得太矮，图标和文字会重叠)
+            // 如果你在设计器里已经调好了大小，这行可以注释掉
+            if (btn.Height < 55) btn.Height = 60;
+        }
+        // 辅助方法：高质量调整图片大小
+        private Image ResizeImage(Image imgToResize, int size)
+        {
+            // 获取原图的宽高
+            int sourceWidth = imgToResize.Width;
+            int sourceHeight = imgToResize.Height;
+
+            // 创建一个新的空画布，大小是你想要的 size (比如 32x32)
+            Bitmap b = new Bitmap(size, size);
+
+            // 创建画笔
+            using (Graphics g = Graphics.FromImage((Image)b))
+            {
+                // 设置高质量插值法，防止缩放后变模糊
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+
+                // 把原图画到新的小画布上
+                g.DrawImage(imgToResize, 0, 0, size, size);
+            }
+            return (Image)b;
         }
 
         // ==========================================
@@ -547,7 +628,7 @@ namespace GIS2025
             Color backColor = ((e.State & TreeNodeStates.Selected) != 0) ? Color.FromArgb(204, 232, 255) : Color.White;
             using (SolidBrush brush = new SolidBrush(backColor)) e.Graphics.FillRectangle(brush, e.Bounds);
 
-            Rectangle imgRect = new Rectangle(e.Bounds.X + 2, e.Bounds.Y + 4, 20, 20);
+            Rectangle imgRect = new Rectangle(e.Bounds.X + 2, e.Bounds.Y, 30, 30);
             Image imgToDraw = e.Node.Checked ? iconEyeOpen : iconEyeClose;
             if (imgToDraw != null) e.Graphics.DrawImage(imgToDraw, imgRect);
 
@@ -606,7 +687,7 @@ namespace GIS2025
             {
                 TreeMouseDownLocation = e.Location;
                 int diff = e.X - node.Bounds.X;
-                if (diff >= 0 && diff <= 24)
+                if (diff >= -30 && diff <= 0)
                 {
                     node.Checked = !node.Checked;
                     if (node.Tag is XVectorLayer vl) vl.Visible = node.Checked;

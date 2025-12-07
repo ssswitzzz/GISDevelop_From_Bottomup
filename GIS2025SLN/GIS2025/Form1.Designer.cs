@@ -40,6 +40,7 @@
             this.button_FullExtent = new System.Windows.Forms.Button();
             this.btnSelect = new System.Windows.Forms.Button();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.btnAddExport = new System.Windows.Forms.Button();
             this.btnAddLegend = new System.Windows.Forms.Button();
             this.btnAddText = new System.Windows.Forms.Button();
             this.btnAddGrid = new System.Windows.Forms.Button();
@@ -48,8 +49,6 @@
             this.btnAddMapFrame = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
-            this.mapBox = new System.Windows.Forms.PictureBox();
-            this.myLayoutControl = new GIS2025.LayoutControl();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -64,7 +63,8 @@
             this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
-            this.btnAddExport = new System.Windows.Forms.Button();
+            this.mapBox = new System.Windows.Forms.PictureBox();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -74,10 +74,10 @@
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.contextMenuLayer.SuspendLayout();
             this.cmsNorthArrow.SuspendLayout();
             this.cmsScaleBar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -144,18 +144,18 @@
             this.explore_button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.explore_button.Location = new System.Drawing.Point(3, 3);
             this.explore_button.Name = "explore_button";
-            this.explore_button.Size = new System.Drawing.Size(113, 69);
+            this.explore_button.Size = new System.Drawing.Size(212, 69);
             this.explore_button.TabIndex = 0;
-            this.explore_button.Text = "Explore";
+            this.explore_button.Text = "漫游";
             this.explore_button.UseVisualStyleBackColor = true;
             this.explore_button.Click += new System.EventHandler(this.explore_button_Click);
             // 
             // button_ReadShp
             // 
             this.button_ReadShp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_ReadShp.Location = new System.Drawing.Point(122, 3);
+            this.button_ReadShp.Location = new System.Drawing.Point(221, 3);
             this.button_ReadShp.Name = "button_ReadShp";
-            this.button_ReadShp.Size = new System.Drawing.Size(135, 69);
+            this.button_ReadShp.Size = new System.Drawing.Size(212, 69);
             this.button_ReadShp.TabIndex = 1;
             this.button_ReadShp.Text = "读取Shapefile";
             this.button_ReadShp.UseVisualStyleBackColor = true;
@@ -164,9 +164,9 @@
             // button_FullExtent
             // 
             this.button_FullExtent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button_FullExtent.Location = new System.Drawing.Point(263, 3);
+            this.button_FullExtent.Location = new System.Drawing.Point(439, 3);
             this.button_FullExtent.Name = "button_FullExtent";
-            this.button_FullExtent.Size = new System.Drawing.Size(113, 69);
+            this.button_FullExtent.Size = new System.Drawing.Size(212, 69);
             this.button_FullExtent.TabIndex = 2;
             this.button_FullExtent.Text = "全图";
             this.button_FullExtent.UseVisualStyleBackColor = true;
@@ -175,9 +175,9 @@
             // btnSelect
             // 
             this.btnSelect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSelect.Location = new System.Drawing.Point(382, 3);
+            this.btnSelect.Location = new System.Drawing.Point(657, 3);
             this.btnSelect.Name = "btnSelect";
-            this.btnSelect.Size = new System.Drawing.Size(113, 69);
+            this.btnSelect.Size = new System.Drawing.Size(212, 69);
             this.btnSelect.TabIndex = 3;
             this.btnSelect.Text = "选择";
             this.btnSelect.UseVisualStyleBackColor = true;
@@ -199,6 +199,18 @@
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Layout";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // btnAddExport
+            // 
+            this.btnAddExport.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddExport.Location = new System.Drawing.Point(1251, 3);
+            this.btnAddExport.Name = "btnAddExport";
+            this.btnAddExport.Size = new System.Drawing.Size(208, 72);
+            this.btnAddExport.TabIndex = 7;
+            this.btnAddExport.Text = "导出地图";
+            this.btnAddExport.UseVisualStyleBackColor = true;
+            this.btnAddExport.Click += new System.EventHandler(this.btnAddExport_Click);
             // 
             // btnAddLegend
             // 
@@ -302,29 +314,6 @@
             this.treeView1.Size = new System.Drawing.Size(282, 867);
             this.treeView1.TabIndex = 0;
             this.treeView1.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeView1_AfterCheck);
-            // 
-            // mapBox
-            // 
-            this.mapBox.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.mapBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapBox.Location = new System.Drawing.Point(0, 0);
-            this.mapBox.Name = "mapBox";
-            this.mapBox.Size = new System.Drawing.Size(1420, 867);
-            this.mapBox.TabIndex = 0;
-            this.mapBox.TabStop = false;
-            this.mapBox.SizeChanged += new System.EventHandler(this.mapBox_SizeChanged);
-            this.mapBox.Paint += new System.Windows.Forms.PaintEventHandler(this.mapBox_Paint);
-            this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
-            this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
-            this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
-            // 
-            // myLayoutControl
-            // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
             // 
             // contextMenuLayer
             // 
@@ -435,17 +424,28 @@
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
             // 
-            // btnAddExport
+            // mapBox
             // 
-            this.btnAddExport.Dock = System.Windows.Forms.DockStyle.Left;
-            this.btnAddExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAddExport.Location = new System.Drawing.Point(1251, 3);
-            this.btnAddExport.Name = "btnAddExport";
-            this.btnAddExport.Size = new System.Drawing.Size(208, 72);
-            this.btnAddExport.TabIndex = 7;
-            this.btnAddExport.Text = "导出地图";
-            this.btnAddExport.UseVisualStyleBackColor = true;
-            this.btnAddExport.Click += new System.EventHandler(this.btnAddExport_Click);
+            this.mapBox.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.mapBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapBox.Location = new System.Drawing.Point(0, 0);
+            this.mapBox.Name = "mapBox";
+            this.mapBox.Size = new System.Drawing.Size(1420, 867);
+            this.mapBox.TabIndex = 0;
+            this.mapBox.TabStop = false;
+            this.mapBox.SizeChanged += new System.EventHandler(this.mapBox_SizeChanged);
+            this.mapBox.Paint += new System.Windows.Forms.PaintEventHandler(this.mapBox_Paint);
+            this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
+            this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
+            this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
+            // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
             // 
             // FormMap
             // 
@@ -468,10 +468,10 @@
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.contextMenuLayer.ResumeLayout(false);
             this.cmsNorthArrow.ResumeLayout(false);
             this.cmsScaleBar.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
