@@ -302,11 +302,9 @@ namespace XGIS
             return 1 * magnitude;
         }
     }
+
     // ==========================================
-    // 【新增】文本元素
-    // ==========================================
-    // ==========================================
-    // 【升级版】文本元素 (支持描边)
+    // 5. 文本元素
     // ==========================================
     public class XTextElement : XLayoutElement
     {
@@ -364,6 +362,124 @@ namespace XGIS
             }
 
             DrawSelectionBox(g, screenRect);
+        }
+    }
+
+    // ==========================================
+    // 6. 图例元素 (新增)
+    // ==========================================
+    public class LayoutLegend : XLayoutElement
+    {
+        public XMapFrame LinkedMapFrame;
+
+        public LayoutLegend(XMapFrame mapFrame)
+        {
+            this.LinkedMapFrame = mapFrame;
+            this.Name = "图例";
+            this.Bounds = new RectangleF(10, 10, 50, 80); // 默认大小
+        }
+
+        public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
+        {
+            if (!Visible) return;
+            if (LinkedMapFrame == null || LinkedMapFrame.Layers == null) return;
+
+            RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
+
+            // 1. 绘制背景框
+            using (SolidBrush bgBrush = new SolidBrush(Color.White))
+            using (Pen borderPen = new Pen(Color.Black, 1))
+            {
+                g.FillRectangle(bgBrush, screenRect);
+                g.DrawRectangle(borderPen, screenRect.X, screenRect.Y, screenRect.Width, screenRect.Height);
+            }
+
+            float currentX = screenRect.X + 5 * zoomScale;
+            float currentY = screenRect.Y + 5 * zoomScale;
+            float rowHeight = 20 * zoomScale;
+            float patchWidth = 24 * zoomScale;
+            float patchHeight = 12 * zoomScale;
+
+            // 2. 绘制 "图例" 标题
+            using (Font titleFont = new Font("微软雅黑", 10 * zoomScale, FontStyle.Bold))
+            using (Font itemFont = new Font("微软雅黑", 9 * zoomScale))
+            using (Brush textBrush = new SolidBrush(Color.Black))
+            {
+                g.DrawString("图例", titleFont, textBrush, currentX, currentY);
+                currentY += 25 * zoomScale;
+
+                // 3. 遍历图层
+                // 注意：通常图例的顺序和绘制顺序相反（最上面的图层排第一个）
+                // 这里的 Layers 列表通常是 0 在最底，Count-1 在最顶
+                // 所以我们倒序遍历
+                for (int i = LinkedMapFrame.Layers.Count - 1; i >= 0; i--)
+                {
+                    XVectorLayer layer = LinkedMapFrame.Layers[i];
+                    if (!layer.Visible) continue; // 不可见图层不画图例
+
+                    // 绘制图层名称
+                    g.DrawString(layer.Name, itemFont, textBrush, currentX, currentY);
+                    currentY += rowHeight;
+
+                    // 根据渲染模式绘制符号
+                    if (layer.ThematicMode == RenderMode.SingleSymbol)
+                    {
+                        DrawPatch(g, layer, layer.UnselectedThematic, currentX, currentY, patchWidth, patchHeight);
+                        g.DrawString("所有要素", itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                        currentY += rowHeight;
+                    }
+                    else if (layer.ThematicMode == RenderMode.UniqueValues)
+                    {
+                        foreach (var kvp in layer.UniqueRenderer)
+                        {
+                            DrawPatch(g, layer, kvp.Value, currentX, currentY, patchWidth, patchHeight);
+                            g.DrawString(kvp.Key, itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                            currentY += rowHeight;
+                        }
+                    }
+                    else if (layer.ThematicMode == RenderMode.GraduatedSymbols)
+                    {
+                        foreach (var cb in layer.ClassBreaks)
+                        {
+                            DrawPatch(g, layer, cb.Thematic, currentX, currentY, patchWidth, patchHeight);
+                            g.DrawString(cb.Label, itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                            currentY += rowHeight;
+                        }
+                    }
+
+                    currentY += 5 * zoomScale; // 图层间距
+
+                    // 简单防溢出检查 (如果超出边框就不画了)
+                    if (currentY > screenRect.Bottom) break;
+                }
+            }
+
+            DrawSelectionBox(g, screenRect);
+        }
+
+        private void DrawPatch(Graphics g, XVectorLayer layer, XThematic th, float x, float y, float w, float h)
+        {
+            if (th == null) return;
+
+            // 简单的垂直居中计算
+            float midY = y + h / 2;
+
+            if (layer.ShapeType == SHAPETYPE.polygon)
+            {
+                g.FillRectangle(th.PolygonBrush, x, y, w, h);
+                g.DrawRectangle(th.PolygonPen, x, y, w, h);
+            }
+            else if (layer.ShapeType == SHAPETYPE.line)
+            {
+                g.DrawLine(th.LinePen, x, midY, x + w, midY);
+            }
+            else if (layer.ShapeType == SHAPETYPE.point)
+            {
+                float r = Math.Min(w, h) / 2;
+                float cx = x + w / 2;
+                g.FillEllipse(th.PointBrush, cx - r, midY - r, 2 * r, 2 * r);
+                g.DrawEllipse(th.PointPen, cx - r, midY - r, 2 * r, 2 * r);
+            }
         }
     }
 

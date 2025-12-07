@@ -48,7 +48,6 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.mapBox = new System.Windows.Forms.PictureBox();
-            this.myLayoutControl = new GIS2025.LayoutControl();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -63,6 +62,8 @@
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
             this.符号系统ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnAddLegend = new System.Windows.Forms.Button();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -183,6 +184,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddLegend);
             this.tabPage2.Controls.Add(this.btnAddText);
             this.tabPage2.Controls.Add(this.btnAddGrid);
             this.tabPage2.Controls.Add(this.btnAddScaleBar);
@@ -302,14 +304,6 @@
             this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
             this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
             // 
-            // myLayoutControl
-            // 
-            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
-            this.myLayoutControl.Name = "myLayoutControl";
-            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
-            this.myLayoutControl.TabIndex = 1;
-            // 
             // contextMenuLayer
             // 
             this.contextMenuLayer.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -321,40 +315,40 @@
             this.注记属性ToolStripMenuItem,
             this.移除图层ToolStripMenuItem});
             this.contextMenuLayer.Name = "contextMenuLayer";
-            this.contextMenuLayer.Size = new System.Drawing.Size(241, 217);
+            this.contextMenuLayer.Size = new System.Drawing.Size(171, 184);
             // 
             // 打开属性表ToolStripMenuItem
             // 
             this.打开属性表ToolStripMenuItem.Name = "打开属性表ToolStripMenuItem";
-            this.打开属性表ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.打开属性表ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.打开属性表ToolStripMenuItem.Text = "打开属性表";
             this.打开属性表ToolStripMenuItem.Click += new System.EventHandler(this.打开属性表ToolStripMenuItem_Click);
             // 
             // 缩放至图层ToolStripMenuItem
             // 
             this.缩放至图层ToolStripMenuItem.Name = "缩放至图层ToolStripMenuItem";
-            this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.缩放至图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.缩放至图层ToolStripMenuItem.Text = "缩放至图层";
             this.缩放至图层ToolStripMenuItem.Click += new System.EventHandler(this.缩放至图层ToolStripMenuItem_Click);
             // 
             // 注记ToolStripMenuItem
             // 
             this.注记ToolStripMenuItem.Name = "注记ToolStripMenuItem";
-            this.注记ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.注记ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.注记ToolStripMenuItem.Text = "注记";
             this.注记ToolStripMenuItem.Click += new System.EventHandler(this.注记ToolStripMenuItem_Click);
             // 
             // 注记属性ToolStripMenuItem
             // 
             this.注记属性ToolStripMenuItem.Name = "注记属性ToolStripMenuItem";
-            this.注记属性ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.注记属性ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.注记属性ToolStripMenuItem.Text = "注记属性";
             this.注记属性ToolStripMenuItem.Click += new System.EventHandler(this.注记属性ToolStripMenuItem_Click);
             // 
             // 移除图层ToolStripMenuItem
             // 
             this.移除图层ToolStripMenuItem.Name = "移除图层ToolStripMenuItem";
-            this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.移除图层ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.移除图层ToolStripMenuItem.Text = "移除图层";
             this.移除图层ToolStripMenuItem.Click += new System.EventHandler(this.移除图层ToolStripMenuItem_Click);
             // 
@@ -415,9 +409,29 @@
             // 符号系统ToolStripMenuItem
             // 
             this.符号系统ToolStripMenuItem.Name = "符号系统ToolStripMenuItem";
-            this.符号系统ToolStripMenuItem.Size = new System.Drawing.Size(240, 30);
+            this.符号系统ToolStripMenuItem.Size = new System.Drawing.Size(170, 30);
             this.符号系统ToolStripMenuItem.Text = "符号系统";
             this.符号系统ToolStripMenuItem.Click += new System.EventHandler(this.符号系统ToolStripMenuItem_Click);
+            // 
+            // btnAddLegend
+            // 
+            this.btnAddLegend.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddLegend.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddLegend.Location = new System.Drawing.Point(1043, 3);
+            this.btnAddLegend.Name = "btnAddLegend";
+            this.btnAddLegend.Size = new System.Drawing.Size(208, 72);
+            this.btnAddLegend.TabIndex = 6;
+            this.btnAddLegend.Text = "添加图例";
+            this.btnAddLegend.UseVisualStyleBackColor = true;
+            this.btnAddLegend.Click += new System.EventHandler(this.btnAddLegend_Click);
+            // 
+            // myLayoutControl
+            // 
+            this.myLayoutControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myLayoutControl.Location = new System.Drawing.Point(0, 0);
+            this.myLayoutControl.Name = "myLayoutControl";
+            this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
+            this.myLayoutControl.TabIndex = 1;
             // 
             // FormMap
             // 
@@ -485,6 +499,7 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiScaleBar;
         private System.Windows.Forms.Button btnAddText;
         private System.Windows.Forms.ToolStripMenuItem 符号系统ToolStripMenuItem;
+        private System.Windows.Forms.Button btnAddLegend;
     }
 }
 

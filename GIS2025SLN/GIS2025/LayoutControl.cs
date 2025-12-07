@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using System.Linq; // 记得引用 Linq
 using XGIS;
 
 namespace GIS2025
@@ -10,7 +11,8 @@ namespace GIS2025
     public enum LayoutTool
     {
         None, PanPaper, Select, CreateMapFrame, ResizeElement, PanMapContent,
-        CreateNorthArrow, CreateScaleBar, ToggleGrid, CreateText
+        CreateNorthArrow, CreateScaleBar, ToggleGrid, CreateText,
+        CreateLegend // 【新增】
     }
 
     public enum ResizeHandle { None, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left }
@@ -127,6 +129,10 @@ namespace GIS2025
         public void StartToggleGrid() { CurrentTool = LayoutTool.ToggleGrid; layoutBox.Cursor = Cursors.Hand; DeselectAll(); }
         public void StartCreateText() { CurrentTool = LayoutTool.CreateText; layoutBox.Cursor = Cursors.IBeam; DeselectAll(); }
 
+        // 【新增】开始创建图例
+        public void StartCreateLegend() { CurrentTool = LayoutTool.CreateLegend; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
+
+
         private void DeselectAll()
         {
             selectedElement = null;
@@ -163,9 +169,10 @@ namespace GIS2025
             }
 
             // 如果处于创建工具状态，不进行选择逻辑
+            // 【修改】加入 CreateLegend
             if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow ||
                 CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.ToggleGrid ||
-                CurrentTool == LayoutTool.CreateText) return;
+                CurrentTool == LayoutTool.CreateText || CurrentTool == LayoutTool.CreateLegend) return;
 
             if (e.Button == MouseButtons.Right)
             {
@@ -242,8 +249,12 @@ namespace GIS2025
             }
 
             // 2. 创建元素模式 (拖出蓝框)
-            if ((CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow ||
-                 CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.CreateText) && e.Button == MouseButtons.Left)
+            // 【修改】加入 CreateLegend
+            bool isCreating = CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow ||
+                              CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.CreateText ||
+                              CurrentTool == LayoutTool.CreateLegend;
+
+            if (isCreating && e.Button == MouseButtons.Left)
             {
                 layoutBox.Invalidate();
                 return;
@@ -432,6 +443,42 @@ namespace GIS2025
                 FinishCreation(new XScaleBar(mmRect, _pendingScaleBarStyle, target));
                 return;
             }
+            // 创建图例 【新增】
+            else if (CurrentTool == LayoutTool.CreateLegend && e.Button == MouseButtons.Left)
+            {
+                // 1. 寻找关联的地图框
+                XMapFrame target = activeMapFrame;
+                if (target == null)
+                {
+                    // 尝试找第一个可用的地图框
+                    target = Page.Elements.FirstOrDefault(x => x is XMapFrame) as XMapFrame;
+                }
+
+                if (target == null)
+                {
+                    MessageBox.Show("请先添加一个地图框！");
+                    CurrentTool = LayoutTool.Select;
+                    layoutBox.Cursor = Cursors.Default;
+                    layoutBox.Invalidate();
+                    return;
+                }
+
+                // 2. 计算大小
+                RectangleF mmRect;
+                if (screenRect.Width < 5)
+                {
+                    RectangleF p = PixelToMMRect(new Rectangle(e.X, e.Y, 0, 0), dpi);
+                    mmRect = new RectangleF(p.X, p.Y, 50, 80); // 默认尺寸
+                }
+                else
+                {
+                    mmRect = PixelToMMRect(screenRect, dpi);
+                }
+
+                // 3. 创建图例
+                FinishCreation(new LayoutLegend(target) { Bounds = mmRect });
+                return;
+            }
             // 经纬网开关
             else if (CurrentTool == LayoutTool.ToggleGrid && e.Button == MouseButtons.Left)
             {
@@ -466,11 +513,12 @@ namespace GIS2025
                 using (Pen p = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash }) e.Graphics.DrawRectangle(p, rect.X - 2, rect.Y - 2, rect.Width + 4, rect.Height + 4);
             }
 
-            // 【关键修复】这里把 CreateText 加进去了，现在拖拽会有蓝色框了
+            // 【关键修复】这里把 CreateText, CreateLegend 加进去了，现在拖拽会有蓝色框了
             bool isCreating = CurrentTool == LayoutTool.CreateMapFrame ||
                               CurrentTool == LayoutTool.CreateNorthArrow ||
                               CurrentTool == LayoutTool.CreateScaleBar ||
-                              CurrentTool == LayoutTool.CreateText;
+                              CurrentTool == LayoutTool.CreateText ||
+                              CurrentTool == LayoutTool.CreateLegend; // 【修改】
 
             if (isCreating && mouseDownLoc != Point.Empty && Control.MouseButtons == MouseButtons.Left)
             {
@@ -680,7 +728,7 @@ namespace GIS2025
         private void UpdateCursor(Point mouse, float dpi)
         {
             if (activeMapFrame != null) { layoutBox.Cursor = Cursors.NoMove2D; return; }
-            if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow || CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.CreateText) { layoutBox.Cursor = Cursors.Cross; return; }
+            if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow || CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.CreateText || CurrentTool == LayoutTool.CreateLegend) { layoutBox.Cursor = Cursors.Cross; return; }
             if (CurrentTool == LayoutTool.ToggleGrid) { layoutBox.Cursor = Cursors.Hand; return; }
 
             if (selectedElement != null && selectedElement.IsSelected)

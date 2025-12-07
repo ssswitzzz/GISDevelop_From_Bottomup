@@ -200,28 +200,22 @@ namespace GIS2025
             // 左侧对齐 X = 140 (原110)
             // 右侧对齐 X = 460 (原380附近)
 
-            // 第一行：分类级数
-            Label l1 = new Label() { Text = "分类级数:", Location = new Point(30, 20), AutoSize = true };
+            // 第一行：分类级数 
             numClassCount = new NumericUpDown() { Location = new Point(140, 18), Minimum = 2, Maximum = 20, Value = 5, Width = 80 };
 
             // 第二行：颜色渐变
-            Label l2 = new Label() { Text = "颜色色带:", Location = new Point(30, 60), AutoSize = true };
             // 起始颜色
             pnlStartColor = new Panel() { Location = new Point(140, 55), Size = new Size(50, 25), BackColor = Color.LightYellow, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
             pnlStartColor.Click += (s, e) => PickColor(pnlStartColor);
 
             // "至" 往右移
-            Label lTo = new Label() { Text = "至", Location = new Point(200, 60), AutoSize = true };
 
             // 结束颜色
             pnlEndColor = new Panel() { Location = new Point(230, 55), Size = new Size(50, 25), BackColor = Color.DarkRed, BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
             pnlEndColor.Click += (s, e) => PickColor(pnlEndColor);
 
             // 第三行：尺寸范围 (右侧区域)
-            Label l3 = new Label() { Text = "尺寸范围:", Location = new Point(380, 60), AutoSize = true }; // X=380
             numMinSize = new NumericUpDown() { Location = new Point(480, 58), Minimum = 1, Maximum = 50, Value = 3, Width = 60 }; // X=460
-
-            Label lToSize = new Label() { Text = "-", Location = new Point(500, 60), AutoSize = true };
             numMaxSize = new NumericUpDown() { Location = new Point(570, 58), Minimum = 1, Maximum = 100, Value = 15, Width = 60 };
 
             // 右侧：计算按钮

@@ -1990,7 +1990,9 @@ namespace XGIS
             // 稍微加一点宽高(1px)以防止瓦片之间出现白线缝隙
             return new Rectangle(p1.X, p1.Y, p2.X - p1.X + 1, p2.Y - p1.Y + 1);
         }
+
     }
+
 
 }
 

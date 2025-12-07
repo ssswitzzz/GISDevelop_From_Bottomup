@@ -694,6 +694,11 @@ namespace GIS2025
 
         }
 
+        private void btnAddLegend_Click(object sender, EventArgs e)
+        {
+            myLayoutControl.StartCreateLegend();
+        }
+
         private void 打开属性表ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             XVectorLayer l = null;
