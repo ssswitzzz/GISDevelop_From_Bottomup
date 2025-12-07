@@ -129,6 +129,47 @@ namespace GIS2025
             InitUniqueControls();
             InitGraduatedControls();
         }
+        // 辅助方法：根据图层类型，从 XThematic 中提取正确的颜色
+        private Color GetThematicColor(XThematic th)
+        {
+            if (th == null) return Color.Black;
+
+            // 假设你的 GIS2025 项目里定义了 SHAPETYPE 枚举
+            // 如果枚举名字不一样（比如 ShapeType），请自行调整
+            if (_layer.ShapeType == SHAPETYPE.point)
+            {
+                return th.PointBrush.Color; // 点：读画刷颜色
+            }
+            else if (_layer.ShapeType == SHAPETYPE.line)
+            {
+                return th.LinePen.Color;    // 线：读画笔颜色
+            }
+            else // Polygon
+            {
+                return th.PolygonBrush.Color; // 面：读填充颜色
+            }
+        }
+
+        // 辅助方法：根据图层类型，从 XThematic 中提取正确的大小
+        private decimal GetThematicSize(XThematic th)
+        {
+            if (th == null) return 3;
+
+            if (_layer.ShapeType == SHAPETYPE.point)
+            {
+                return (decimal)th.PointRadius;
+            }
+            else if (_layer.ShapeType == SHAPETYPE.line)
+            {
+                return (decimal)th.LinePen.Width;
+            }
+            else // Polygon
+            {
+                // 面一般没有“大小”，但如果之前存过边框宽度或者点半径，可以读出来
+                // 这里暂时读 PointRadius 作为通用的“大小”容器
+                return (decimal)th.PointRadius;
+            }
+        }
 
         private void InitSingleControls()
         {
@@ -196,7 +237,19 @@ namespace GIS2025
             {
                 cboField.Items.Add(f.name);
             }
-            if (cboField.Items.Count > 0) cboField.SelectedIndex = 0;
+
+            // --- 修改开始：记忆之前选中的字段 ---
+            if (!string.IsNullOrEmpty(_layer.RenderField) && cboField.Items.Contains(_layer.RenderField))
+            {
+                cboField.SelectedItem = _layer.RenderField;
+            }
+            else if (cboField.Items.Count > 0)
+            {
+                cboField.SelectedIndex = 0;
+            }
+            // --- 修改结束 ---
+
+            // 这一句会触发下面的 CboMode_SelectedIndexChanged，所以模式也会被恢复
             cboMode.SelectedIndex = (int)_layer.ThematicMode;
         }
 
@@ -207,41 +260,89 @@ namespace GIS2025
             cboField.Enabled = true;
 
             int mode = cboMode.SelectedIndex;
-            if (mode == 0) // Single
+
+            // 判断是否需要“恢复记忆”
+            bool isRestoring = (mode == (int)_layer.ThematicMode);
+
+            if (mode == 0) // Single Symbol (单一符号)
             {
                 cboField.Enabled = false;
-                // 注意：这里需要重新添加 Label，因为 Panel 清空了
-                // 使用与 InitSingleControls 一致的坐标
+                // 添加控件（带之前调整好的坐标）
                 pnlContainer.Controls.Add(new Label() { Text = "符号颜色:", Location = new Point(30, 50), AutoSize = true });
                 pnlContainer.Controls.Add(pnlSingleColor);
-
                 pnlContainer.Controls.Add(new Label() { Text = "符号大小:", Location = new Point(380, 50), AutoSize = true });
                 pnlContainer.Controls.Add(numSingleSize);
+
+                // --- 核心修改：使用辅助方法恢复数据 ---
+                if (isRestoring && _layer.UnselectedThematic != null)
+                {
+                    pnlSingleColor.BackColor = GetThematicColor(_layer.UnselectedThematic);
+                    numSingleSize.Value = GetThematicSize(_layer.UnselectedThematic);
+                }
+                else
+                {
+                    // 如果没有记忆，给个默认值
+                    pnlSingleColor.BackColor = Color.Red;
+                    numSingleSize.Value = 3;
+                }
 
                 dgvPreview.Rows.Add("", "所有要素", "单一符号");
                 UpdateSinglePreview();
             }
-            else if (mode == 1) // Unique
+            else if (mode == 1) // Unique Values (唯一值)
             {
                 pnlContainer.Controls.Add(btnGenerateUnique);
+
+                // --- 核心修改：恢复唯一值表格 ---
+                if (isRestoring && _layer.UniqueRenderer != null && _layer.UniqueRenderer.Count > 0)
+                {
+                    foreach (var kvp in _layer.UniqueRenderer)
+                    {
+                        string val = kvp.Key;
+                        XThematic th = kvp.Value;
+                        Color c = GetThematicColor(th); // 使用辅助方法
+
+                        int idx = dgvPreview.Rows.Add("", val, val);
+                        dgvPreview.Rows[idx].Cells[0].Style.BackColor = c;
+                        dgvPreview.Rows[idx].Tag = th; // 必须存回去，否则点确定时会丢失
+                    }
+                }
             }
-            else if (mode == 2) // Graduated
+            else if (mode == 2) // Graduated Symbols (分级符号)
             {
-                // 使用与 InitGraduatedControls 一致的坐标
                 pnlContainer.Controls.Add(new Label() { Text = "分类级数:", Location = new Point(30, 20), AutoSize = true });
                 pnlContainer.Controls.Add(numClassCount);
-
                 pnlContainer.Controls.Add(new Label() { Text = "颜色色带:", Location = new Point(30, 60), AutoSize = true });
                 pnlContainer.Controls.Add(pnlStartColor);
                 pnlContainer.Controls.Add(new Label() { Text = "至", Location = new Point(200, 60), AutoSize = true });
                 pnlContainer.Controls.Add(pnlEndColor);
-
                 pnlContainer.Controls.Add(new Label() { Text = "尺寸范围:", Location = new Point(380, 60), AutoSize = true });
                 pnlContainer.Controls.Add(numMinSize);
                 pnlContainer.Controls.Add(new Label() { Text = "-", Location = new Point(530, 60), AutoSize = true });
                 pnlContainer.Controls.Add(numMaxSize);
-
                 pnlContainer.Controls.Add(_btnCalcGraduated);
+
+                // --- 核心修改：恢复分级符号表格 ---
+                if (isRestoring && _layer.ClassBreaks != null && _layer.ClassBreaks.Count > 0)
+                {
+                    numClassCount.Value = _layer.ClassBreaks.Count;
+
+                    // 尝试恢复起始和终止颜色（取第一个和最后一个断点的颜色）
+                    // 这一步是可选的，为了让UI上的色带也能对应上
+                    if (_layer.ClassBreaks.Count > 1)
+                    {
+                        pnlStartColor.BackColor = GetThematicColor(_layer.ClassBreaks[0].Thematic);
+                        pnlEndColor.BackColor = GetThematicColor(_layer.ClassBreaks[_layer.ClassBreaks.Count - 1].Thematic);
+                    }
+
+                    foreach (var cb in _layer.ClassBreaks)
+                    {
+                        Color c = GetThematicColor(cb.Thematic); // 使用辅助方法
+                        int idx = dgvPreview.Rows.Add("", cb.Label, cb.Label);
+                        dgvPreview.Rows[idx].Cells[0].Style.BackColor = c;
+                        dgvPreview.Rows[idx].Tag = cb.Thematic;
+                    }
+                }
             }
         }
 
@@ -348,17 +449,39 @@ namespace GIS2025
 
         private XThematic CreateThematic(Color c, float size)
         {
+            // 根据图层类型，把 Color 和 Size 塞到正确的属性里
             if (_layer.ShapeType == SHAPETYPE.polygon)
             {
-                return new XThematic(new Pen(Color.Black, 1), new Pen(Color.Cyan, 2), new Pen(Color.Black, 1), new SolidBrush(c), (int)size);
+                // 面：颜色给 PolygonBrush，大小先不管或者给 PointRadius 存着
+                return new XThematic(
+                    new Pen(Color.Black, 1),       // LinePen
+                    new Pen(Color.Cyan, 2),        // PolygonPen (边框)
+                    new Pen(Color.Black, 1),       // PointPen
+                    new SolidBrush(c),             // PolygonBrush (填充颜色在这里!)
+                    (int)size                      // PointRadius
+                );
             }
             else if (_layer.ShapeType == SHAPETYPE.line)
             {
-                return new XThematic(new Pen(c, size), new Pen(Color.Cyan, 2), new Pen(c, size), new SolidBrush(c), (int)size);
+                // 线：颜色给 LinePen，大小给 LinePen.Width
+                return new XThematic(
+                    new Pen(c, size),              // LinePen (颜色和宽度在这里!)
+                    new Pen(Color.Cyan, 2),        // PolygonPen
+                    new Pen(c, size),              // PointPen
+                    new SolidBrush(c),             // PointBrush
+                    (int)size                      // PointRadius
+                );
             }
             else // Point
             {
-                return new XThematic(new Pen(Color.Black, 1), new Pen(Color.Cyan, 2), new Pen(Color.Black, 1), new SolidBrush(c), (int)size);
+                // 点：颜色给 PointBrush，大小给 PointRadius
+                return new XThematic(
+                    new Pen(Color.Black, 1),       // LinePen
+                    new Pen(Color.Cyan, 2),        // PolygonPen
+                    new Pen(Color.Black, 1),       // PointPen
+                    new SolidBrush(c),             // PointBrush (颜色在这里!)
+                    (int)size                      // PointRadius (半径在这里!)
+                );
             }
         }
 
