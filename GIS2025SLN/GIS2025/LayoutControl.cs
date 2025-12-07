@@ -765,5 +765,63 @@ namespace GIS2025
             promptForm.AcceptButton = confirmation;
             return promptForm.ShowDialog() == DialogResult.OK ? textBox.Text : "";
         }
+        // 在 LayoutControl 类中添加
+        public void ExportToImage(string filename, int dpi, System.Drawing.Imaging.ImageFormat format, long quality)
+        {
+            // 1. 计算像素尺寸
+            // 像素 = 毫米 / 25.4 * DPI
+            float pixelPerMM = dpi / 25.4f;
+            int widthPx = (int)(Page.WidthMM * pixelPerMM);
+            int heightPx = (int)(Page.HeightMM * pixelPerMM);
+
+            // 2. 创建高清大图
+            using (Bitmap bitmap = new Bitmap(widthPx, heightPx))
+            {
+                // 设置 Bitmap 自身的分辨率元数据 (这样在PS里打开才会显示300DPI)
+                bitmap.SetResolution(dpi, dpi);
+
+                using (Graphics g = Graphics.FromImage(bitmap))
+                {
+                    // 3. 设置绘图质量
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                    // 4. 【核心魔法】调用你已经写好的 Draw 方法
+                    // 注意：缩放比例必须是 1.0，偏移量必须是 0，因为我们要画满整张纸
+                    Page.Draw(g, dpi, 1.0f, 0, 0);
+                }
+
+                // 5. 处理 JPEG 压缩质量
+                if (format == System.Drawing.Imaging.ImageFormat.Jpeg)
+                {
+                    System.Drawing.Imaging.Encoder myEncoder = System.Drawing.Imaging.Encoder.Quality;
+                    System.Drawing.Imaging.EncoderParameters myEncoderParameters = new System.Drawing.Imaging.EncoderParameters(1);
+                    System.Drawing.Imaging.EncoderParameter myEncoderParameter = new System.Drawing.Imaging.EncoderParameter(myEncoder, quality);
+                    myEncoderParameters.Param[0] = myEncoderParameter;
+
+                    // 获取 JPEG 编码器
+                    System.Drawing.Imaging.ImageCodecInfo jpgEncoder = GetEncoder(System.Drawing.Imaging.ImageFormat.Jpeg);
+                    bitmap.Save(filename, jpgEncoder, myEncoderParameters);
+                }
+                else
+                {
+                    // 其他格式直接保存
+                    bitmap.Save(filename, format);
+                }
+            }
+        }
+
+        // 辅助方法：获取编码器信息
+        private System.Drawing.Imaging.ImageCodecInfo GetEncoder(System.Drawing.Imaging.ImageFormat format)
+        {
+            System.Drawing.Imaging.ImageCodecInfo[] codecs = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders();
+            foreach (System.Drawing.Imaging.ImageCodecInfo codec in codecs)
+            {
+                if (codec.FormatID == format.Guid) return codec;
+            }
+            return null;
+        }
     }
 }

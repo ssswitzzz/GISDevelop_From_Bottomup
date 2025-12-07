@@ -368,6 +368,9 @@ namespace XGIS
     // ==========================================
     // 6. 图例元素 (新增)
     // ==========================================
+    // ==========================================
+    // 6. 图例元素 (修复版：支持高 DPI 导出)
+    // ==========================================
     public class LayoutLegend : XLayoutElement
     {
         public XMapFrame LinkedMapFrame;
@@ -376,7 +379,7 @@ namespace XGIS
         {
             this.LinkedMapFrame = mapFrame;
             this.Name = "图例";
-            this.Bounds = new RectangleF(10, 10, 50, 80); // 默认大小
+            this.Bounds = new RectangleF(10, 10, 50, 80); // 默认大小 (毫米)
         }
 
         public override void Draw(Graphics g, float screenDpi, float zoomScale, float offsetX, float offsetY)
@@ -386,54 +389,63 @@ namespace XGIS
 
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
 
-            // 1. 绘制背景框
+            // 1. 计算当前环境下的 1毫米 等于多少像素
+            float pixelPerMM = screenDpi / 25.4f;
+
+            // 2. 【核心修复】所有的间距、大小都用 MM 定义，然后转为像素
+            // 这样 300 DPI 下，行高也会自动变大 3 倍，就不会挤了
+            float padding = 2.0f * pixelPerMM * zoomScale;      // 内边距 2mm
+            float rowHeight = 7.0f * pixelPerMM * zoomScale;    // 行高 7mm
+            float titleHeight = 10.0f * pixelPerMM * zoomScale; // 标题行高 10mm
+            float patchWidth = 8.0f * pixelPerMM * zoomScale;   // 符号宽 8mm
+            float patchHeight = 4.0f * pixelPerMM * zoomScale;  // 符号高 4mm
+            float gap = 3.0f * pixelPerMM * zoomScale;          // 文字和符号的间距 3mm
+
+            // 绘制背景框
             using (SolidBrush bgBrush = new SolidBrush(Color.White))
-            using (Pen borderPen = new Pen(Color.Black, 1))
+            using (Pen borderPen = new Pen(Color.Black, 1)) // 边框线宽也可以 * zoomScale
             {
                 g.FillRectangle(bgBrush, screenRect);
                 g.DrawRectangle(borderPen, screenRect.X, screenRect.Y, screenRect.Width, screenRect.Height);
             }
 
-            float currentX = screenRect.X + 5 * zoomScale;
-            float currentY = screenRect.Y + 5 * zoomScale;
-            float rowHeight = 20 * zoomScale;
-            float patchWidth = 24 * zoomScale;
-            float patchHeight = 12 * zoomScale;
+            float currentX = screenRect.X + padding;
+            float currentY = screenRect.Y + padding;
 
-            // 2. 绘制 "图例" 标题
+            // 3. 绘制 "图例" 标题
+            // 字体大小保持不变，GDI+ 会自动处理 DPI 缩放
             using (Font titleFont = new Font("微软雅黑", 10 * zoomScale, FontStyle.Bold))
             using (Font itemFont = new Font("微软雅黑", 9 * zoomScale))
             using (Brush textBrush = new SolidBrush(Color.Black))
             {
+                // 绘制标题
+                // 稍微往下移一点居中
                 g.DrawString("图例", titleFont, textBrush, currentX, currentY);
-                currentY += 25 * zoomScale;
+                currentY += titleHeight;
 
-                // 3. 遍历图层
-                // 注意：通常图例的顺序和绘制顺序相反（最上面的图层排第一个）
-                // 这里的 Layers 列表通常是 0 在最底，Count-1 在最顶
-                // 所以我们倒序遍历
+                // 4. 遍历图层 (倒序)
                 for (int i = LinkedMapFrame.Layers.Count - 1; i >= 0; i--)
                 {
                     XVectorLayer layer = LinkedMapFrame.Layers[i];
-                    if (!layer.Visible) continue; // 不可见图层不画图例
+                    if (!layer.Visible) continue;
 
                     // 绘制图层名称
                     g.DrawString(layer.Name, itemFont, textBrush, currentX, currentY);
                     currentY += rowHeight;
 
-                    // 根据渲染模式绘制符号
+                    // 绘制符号和子项
                     if (layer.ThematicMode == RenderMode.SingleSymbol)
                     {
-                        DrawPatch(g, layer, layer.UnselectedThematic, currentX, currentY, patchWidth, patchHeight);
-                        g.DrawString("所有要素", itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                        DrawItem(g, layer, layer.UnselectedThematic, "所有要素", itemFont, textBrush,
+                                 currentX, currentY, patchWidth, patchHeight, gap);
                         currentY += rowHeight;
                     }
                     else if (layer.ThematicMode == RenderMode.UniqueValues)
                     {
                         foreach (var kvp in layer.UniqueRenderer)
                         {
-                            DrawPatch(g, layer, kvp.Value, currentX, currentY, patchWidth, patchHeight);
-                            g.DrawString(kvp.Key, itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                            DrawItem(g, layer, kvp.Value, kvp.Key, itemFont, textBrush,
+                                     currentX, currentY, patchWidth, patchHeight, gap);
                             currentY += rowHeight;
                         }
                     }
@@ -441,15 +453,15 @@ namespace XGIS
                     {
                         foreach (var cb in layer.ClassBreaks)
                         {
-                            DrawPatch(g, layer, cb.Thematic, currentX, currentY, patchWidth, patchHeight);
-                            g.DrawString(cb.Label, itemFont, textBrush, currentX + patchWidth + 5, currentY - 2);
+                            DrawItem(g, layer, cb.Thematic, cb.Label, itemFont, textBrush,
+                                     currentX, currentY, patchWidth, patchHeight, gap);
                             currentY += rowHeight;
                         }
                     }
 
-                    currentY += 5 * zoomScale; // 图层间距
+                    currentY += padding; // 图层之间多空一点
 
-                    // 简单防溢出检查 (如果超出边框就不画了)
+                    // 防溢出 (可选)
                     if (currentY > screenRect.Bottom) break;
                 }
             }
@@ -457,11 +469,27 @@ namespace XGIS
             DrawSelectionBox(g, screenRect);
         }
 
+        // 辅助：绘制单行图例项 (符号 + 文字)
+        private void DrawItem(Graphics g, XVectorLayer layer, XThematic th, string label,
+                              Font font, Brush brush,
+                              float x, float y, float w, float h, float gap)
+        {
+            // 1. 画符号
+            // 计算符号垂直居中
+            // 当前行高约等于 h * 1.8 左右 (根据 rowHeight 设定的)
+            // 我们简单让它向下偏移一点
+            float symbolY = y + h * 0.2f;
+
+            DrawPatch(g, layer, th, x, symbolY, w, h);
+
+            // 2. 画文字
+            // 文字在符号右边
+            g.DrawString(label, font, brush, x + w + gap, y);
+        }
+
         private void DrawPatch(Graphics g, XVectorLayer layer, XThematic th, float x, float y, float w, float h)
         {
             if (th == null) return;
-
-            // 简单的垂直居中计算
             float midY = y + h / 2;
 
             if (layer.ShapeType == SHAPETYPE.polygon)

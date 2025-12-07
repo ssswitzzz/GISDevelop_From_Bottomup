@@ -64,6 +64,7 @@
             this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnAddExport = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -184,6 +185,7 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.btnAddExport);
             this.tabPage2.Controls.Add(this.btnAddLegend);
             this.tabPage2.Controls.Add(this.btnAddText);
             this.tabPage2.Controls.Add(this.btnAddGrid);
@@ -433,6 +435,18 @@
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
             // 
+            // btnAddExport
+            // 
+            this.btnAddExport.Dock = System.Windows.Forms.DockStyle.Left;
+            this.btnAddExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAddExport.Location = new System.Drawing.Point(1251, 3);
+            this.btnAddExport.Name = "btnAddExport";
+            this.btnAddExport.Size = new System.Drawing.Size(208, 72);
+            this.btnAddExport.TabIndex = 7;
+            this.btnAddExport.Text = "导出地图";
+            this.btnAddExport.UseVisualStyleBackColor = true;
+            this.btnAddExport.Click += new System.EventHandler(this.btnAddExport_Click);
+            // 
             // FormMap
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 18F);
@@ -500,6 +514,7 @@
         private System.Windows.Forms.Button btnAddText;
         private System.Windows.Forms.ToolStripMenuItem 符号系统ToolStripMenuItem;
         private System.Windows.Forms.Button btnAddLegend;
+        private System.Windows.Forms.Button btnAddExport;
     }
 }
 

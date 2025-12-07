@@ -709,6 +709,45 @@ namespace GIS2025
             myLayoutControl.StartCreateLegend();
         }
 
+        private void btnAddExport_Click(object sender, EventArgs e)
+        {
+            // 1. 弹出设置窗口
+            FormExport frm = new FormExport();
+            if (frm.ShowDialog() == DialogResult.OK)
+            {
+                // 2. 弹出保存文件窗口
+                SaveFileDialog sfd = new SaveFileDialog();
+                string ext = frm.ExportFormat.ToString().ToLower();
+                if (ext == "jpeg") ext = "jpg";
+
+                sfd.Filter = $"{ext.ToUpper()} File|*.{ext}";
+                sfd.FileName = $"Map_Export_{DateTime.Now:MMdd_HHmm}";
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        // 3. 开始导出
+                        // 鼠标变漏斗，防止用户乱点
+                        this.Cursor = Cursors.WaitCursor;
+
+                        myLayoutControl.ExportToImage(sfd.FileName, frm.ExportDPI, frm.ExportFormat, frm.ExportQuality);
+
+                        this.Cursor = Cursors.Default;
+                        MessageBox.Show("导出成功！\n文件保存在: " + sfd.FileName, "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        // 可选：导出完自动打开图片
+                        System.Diagnostics.Process.Start(sfd.FileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.Cursor = Cursors.Default;
+                        MessageBox.Show("导出失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
         private void 打开属性表ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             XVectorLayer l = null;

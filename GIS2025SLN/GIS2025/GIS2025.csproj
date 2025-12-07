@@ -62,6 +62,12 @@
     <Compile Include="FormAttribute.Designer.cs">
       <DependentUpon>FormAttribute.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormExport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormExport.Designer.cs">
+      <DependentUpon>FormExport.cs</DependentUpon>
+    </Compile>
     <Compile Include="FormLabelProperty.cs">
       <SubType>Form</SubType>
     </Compile>
