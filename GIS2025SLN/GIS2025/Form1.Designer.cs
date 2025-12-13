@@ -49,6 +49,7 @@
             this.btnAddMapFrame = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.treeView1 = new System.Windows.Forms.TreeView();
+            this.mapBox = new System.Windows.Forms.PictureBox();
             this.contextMenuLayer = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.打开属性表ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.缩放至图层ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -63,9 +64,8 @@
             this.cmsScaleBar = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiScaleLine = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiScaleBar = new System.Windows.Forms.ToolStripMenuItem();
-            this.mapBox = new System.Windows.Forms.PictureBox();
-            this.myLayoutControl = new GIS2025.LayoutControl();
             this.doubleLineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.myLayoutControl = new GIS2025.LayoutControl();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -75,10 +75,10 @@
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.contextMenuLayer.SuspendLayout();
             this.cmsNorthArrow.SuspendLayout();
             this.cmsScaleBar.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).BeginInit();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -316,6 +316,21 @@
             this.treeView1.TabIndex = 0;
             this.treeView1.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeView1_AfterCheck);
             // 
+            // mapBox
+            // 
+            this.mapBox.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.mapBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapBox.Location = new System.Drawing.Point(0, 0);
+            this.mapBox.Name = "mapBox";
+            this.mapBox.Size = new System.Drawing.Size(1420, 867);
+            this.mapBox.TabIndex = 0;
+            this.mapBox.TabStop = false;
+            this.mapBox.SizeChanged += new System.EventHandler(this.mapBox_SizeChanged);
+            this.mapBox.Paint += new System.Windows.Forms.PaintEventHandler(this.mapBox_Paint);
+            this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
+            this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
+            this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
+            // 
             // contextMenuLayer
             // 
             this.contextMenuLayer.ImageScalingSize = new System.Drawing.Size(24, 24);
@@ -426,20 +441,12 @@
             this.tsmiScaleBar.Text = "Bar";
             this.tsmiScaleBar.Click += new System.EventHandler(this.tsmiScaleBar_Click);
             // 
-            // mapBox
+            // doubleLineToolStripMenuItem
             // 
-            this.mapBox.BackColor = System.Drawing.SystemColors.ActiveCaption;
-            this.mapBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapBox.Location = new System.Drawing.Point(0, 0);
-            this.mapBox.Name = "mapBox";
-            this.mapBox.Size = new System.Drawing.Size(1420, 867);
-            this.mapBox.TabIndex = 0;
-            this.mapBox.TabStop = false;
-            this.mapBox.SizeChanged += new System.EventHandler(this.mapBox_SizeChanged);
-            this.mapBox.Paint += new System.Windows.Forms.PaintEventHandler(this.mapBox_Paint);
-            this.mapBox.MouseDown += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseDown);
-            this.mapBox.MouseMove += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseMove);
-            this.mapBox.MouseUp += new System.Windows.Forms.MouseEventHandler(this.mapBox_MouseUp);
+            this.doubleLineToolStripMenuItem.Name = "doubleLineToolStripMenuItem";
+            this.doubleLineToolStripMenuItem.Size = new System.Drawing.Size(178, 30);
+            this.doubleLineToolStripMenuItem.Text = "DoubleLine";
+            this.doubleLineToolStripMenuItem.Click += new System.EventHandler(this.tsmiScaleDouble_Click);
             // 
             // myLayoutControl
             // 
@@ -448,13 +455,6 @@
             this.myLayoutControl.Name = "myLayoutControl";
             this.myLayoutControl.Size = new System.Drawing.Size(1420, 867);
             this.myLayoutControl.TabIndex = 1;
-            // 
-            // doubleLineToolStripMenuItem
-            // 
-            this.doubleLineToolStripMenuItem.Name = "doubleLineToolStripMenuItem";
-            this.doubleLineToolStripMenuItem.Size = new System.Drawing.Size(178, 30);
-            this.doubleLineToolStripMenuItem.Text = "DoubleLine";
-            this.doubleLineToolStripMenuItem.Click += new System.EventHandler(this.tsmiScaleDouble_Click);
             // 
             // FormMap
             // 
@@ -466,7 +466,7 @@
             this.Controls.Add(this.statusStrip1);
             this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "FormMap";
-            this.Text = "Form1";
+            this.Text = "ArcGIS Fake";
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
             this.tabControl1.ResumeLayout(false);
@@ -477,10 +477,10 @@
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.contextMenuLayer.ResumeLayout(false);
             this.cmsNorthArrow.ResumeLayout(false);
             this.cmsScaleBar.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.mapBox)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

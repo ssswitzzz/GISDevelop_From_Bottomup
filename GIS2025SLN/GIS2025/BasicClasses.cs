@@ -43,32 +43,29 @@ namespace XGIS
     // 用于记录注记的各种风格参数
     public class XLabelThematic
     {
-        public int LabelIndex = 0; // 记录显示第几个字段
-        public Font LabelFont = new Font("宋体", 10); // 字体
-        public SolidBrush LabelBrush = new SolidBrush(Color.Black); // 文字颜色
+        public int LabelIndex = 0;
+        public Font LabelFont = new Font("宋体", 10);
+        public SolidBrush LabelBrush = new SolidBrush(Color.Black);
 
-        public bool UseOutline = true; // 是否使用描边
-        public Color OutlineColor = Color.White; // 描边颜色
-        public float OutlineWidth = 2.0f; // 描边宽度
-
+        public bool UseOutline = true;
+        public Color OutlineColor = Color.White; 
+        public float OutlineWidth = 2.0f;
         public int OffsetY = -10;
     }
 
-    // 1. 定义渲染模式枚举
     public enum RenderMode
     {
-        SingleSymbol,   // 单一符号
-        UniqueValues,   // 唯一值 (分类)
-        GraduatedSymbols // 分级符号 (数量)
+        SingleSymbol,  
+        UniqueValues, 
+        GraduatedSymbols 
     }
 
-    // 2. 分级渲染类
     public class ClassBreak
     {
         public double MinValue;
         public double MaxValue;
         public XThematic Thematic;
-        public string Label; // 例如 "0 - 100"
+        public string Label; 
     }
 
     public class XSelect
@@ -244,16 +241,11 @@ namespace XGIS
             FileStream fsr = new FileStream(filename, FileMode.Create);
             BinaryWriter bw = new BinaryWriter(fsr);
 
-            //写文件头
             WriteFileHeader(layer, bw);
-            //写图层名
             XTools.WriteString(layer.Name, bw);
-            //写字段信息
             WriteFields(layer.Fields, bw);
-            //写空间对象
             WriteFeatures(layer, bw);
 
-            //其它内容
             bw.Close();
             fsr.Close();
         }
@@ -262,18 +254,12 @@ namespace XGIS
         {
             FileStream fsr = new FileStream(filename, FileMode.Open);
             BinaryReader br = new BinaryReader(fsr);
-            //读文件头
             MyFileHeader mfh = (MyFileHeader)(XTools.FromBytes2Struct(br, typeof(MyFileHeader)));
             SHAPETYPE ShapeType = (SHAPETYPE)Enum.Parse(typeof(SHAPETYPE), mfh.ShapeType.ToString());
-            //读图层名称
             string layername = XTools.ReadString(br);
-            //构造空的图层
             XVectorLayer layer = new XVectorLayer(layername, ShapeType);
-            //读字段
             layer.Fields = ReadFields(br, mfh.FieldCount);
-            //定义图层范围
             layer.Extent = new XExtent(mfh.MinX, mfh.MaxX, mfh.MinY, mfh.MaxY);
-            //读控件对象
             ReadFeatures(layer, br, mfh.FeatureCount);
             br.Close();
             fsr.Close();
@@ -346,18 +332,15 @@ namespace XGIS
         {
             FileStream fsr = new FileStream(dbffilename, FileMode.Open);
             BinaryReader br = new BinaryReader(fsr);
-            //文件头
             DBFHeader dh = (DBFHeader)XTools.FromBytes2Struct(br, typeof(DBFHeader));
-            //字段区和结束标志
             int FieldCount = (dh.HeaderLength - 33) / 32;
-            br.ReadBytes(32 * FieldCount + 1); //跳过字段区及结束标志字节
+            br.ReadBytes(32 * FieldCount + 1);
 
-            //读实际的属性值
             List<XAttribute> attributes = new List<XAttribute>();
-            for (int i = 0; i < dh.RecordCount; i++) //开始读取具体数值
+            for (int i = 0; i < dh.RecordCount; i++) 
             {
                 XAttribute attribute = new XAttribute();
-                char tempchar = (char)br.ReadByte();  //每个记录的开始都有一个起始字节
+                char tempchar = (char)br.ReadByte(); 
                 for (int j = 0; j < FieldCount; j++)
                     attribute.AddValue(fields[j].DBFValueToObject(br));
                 attributes.Add(attribute);
@@ -395,13 +378,10 @@ namespace XGIS
 
             int index = 0;
 
-            //其他代码
             while (br.PeekChar() != -1)
             {
-                //读记录头
                 RecordHeader rh = ReadRecordHeader(br);
                 int ByteLength = XTools.ReverseInt(rh.RecordLength) * 2 - 4;
-                //一次性把记录内容读出来
                 byte[] RecordContent = br.ReadBytes(ByteLength);
 
                 if (ShapeType == SHAPETYPE.point)
@@ -434,7 +414,6 @@ namespace XGIS
                         layer.AddFeature(feature);
                     }
                 }
-                //其他代码
             }
             br.Close();
             fsr.Close();
@@ -818,7 +797,6 @@ namespace XGIS
             UpdateExtent();
         }
 
-        // 【核心修改】增加 symbolScale 参数，默认为 1.0f
         public void draw(Graphics graphics, XView view, float symbolScale = 1.0f)
         {
             if (Extent == null) return;
@@ -872,7 +850,6 @@ namespace XGIS
                     }
                 }
 
-                // 传递 symbolScale 参数
                 feature.draw(graphics, view, LabelOrNot, LabelIndex, currentThematic, this.LabelThematic, symbolScale);
             }
         }
@@ -1669,15 +1646,15 @@ namespace XGIS
         public void Draw(Graphics g, XView view)
         {
             if (!Visible) return;
+
             int zoom = CalculateZoomLevel(view);
             GetTileBounds(view.CurrentMapExtent, zoom, out int minX, out int maxX, out int minY, out int maxY);
-            int maxTileIndex = (1 << zoom) - 1;
 
+            int maxTileIndex = (1 << zoom) - 1;
             if (minX < 0) minX = 0;
             if (maxX > maxTileIndex) maxX = maxTileIndex;
             if (minY < 0) minY = 0;
             if (maxY > maxTileIndex) maxY = maxTileIndex;
-
             int totalTiles = (maxX - minX + 1) * (maxY - minY + 1);
             if (totalTiles > 100 || totalTiles < 0) return;
 
@@ -1690,11 +1667,7 @@ namespace XGIS
 
                     if (tileCache.ContainsKey(key))
                     {
-                        try
-                        {
-                            g.DrawImage(tileCache[key], screenRect);
-                        }
-                        catch { }
+                        g.DrawImage(tileCache[key], screenRect);
                     }
                     else
                     {
@@ -1702,6 +1675,7 @@ namespace XGIS
                         {
                             DownloadTileAsync(x, y, zoom, key);
                         }
+
                         bool foundParent = false;
                         for (int i = 1; i <= 5; i++)
                         {
@@ -1715,7 +1689,7 @@ namespace XGIS
                             {
                                 DrawParentTile(g, tileCache[pKey], x, y, zoom, pX, pY, pZ, screenRect);
                                 foundParent = true;
-                                break;
+                                break; // 只要找到最近的一个长辈就行了，不用再往上找了
                             }
                         }
                     }
@@ -1732,6 +1706,7 @@ namespace XGIS
             {
                 int diff = childZ - parentZ;
                 int srcSize = 256 >> diff;
+
                 int offsetX = (childX - (parentX << diff)) * srcSize;
                 int offsetY = (childY - (parentY << diff)) * srcSize;
                 Rectangle srcRect = new Rectangle(offsetX, offsetY, srcSize, srcSize);

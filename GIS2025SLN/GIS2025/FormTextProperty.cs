@@ -5,12 +5,10 @@ using XGIS;
 
 namespace GIS2025
 {
-    // 必须保留 partial 关键字
     public partial class FormTextProperty : Form
     {
         private XTextElement _element;
 
-        // 控件定义
         private TextBox txtContent;
         private Button btnFont;
         private Panel pnlColor;
@@ -20,7 +18,6 @@ namespace GIS2025
         private Label lblPreview;
         private Panel pnlPreviewContainer;
 
-        // 临时存储变量
         private Font _tempFont;
         private Color _tempColor;
         private Color _tempOutlineColor;
@@ -51,7 +48,7 @@ namespace GIS2025
             int inputWidth = 300;
             int y = 20;
 
-            // 1. 文本内容
+
             Label lblContent = new Label() { Text = "文本内容:", Location = new Point(padding, y + 3), AutoSize = true };
             txtContent = new TextBox() { Location = new Point(inputX, y), Width = inputWidth };
             txtContent.TextChanged += (s, e) => UpdatePreview();
@@ -59,7 +56,6 @@ namespace GIS2025
             this.Controls.Add(txtContent);
             y += 45;
 
-            // 2. 字体设置
             Label lblFont = new Label() { Text = "字体样式:", Location = new Point(padding, y + 3), AutoSize = true };
             btnFont = new Button() { Text = "点击修改字体...", Location = new Point(inputX, y - 2), Width = inputWidth, Height = 28 };
             btnFont.Click += BtnFont_Click;
@@ -67,7 +63,6 @@ namespace GIS2025
             this.Controls.Add(btnFont);
             y += 45;
 
-            // 3. 文字颜色
             Label lblColor = new Label() { Text = "文字颜色:", Location = new Point(padding, y + 3), AutoSize = true };
             pnlColor = new Panel() { Location = new Point(inputX, y), Size = new Size(60, 24), BorderStyle = BorderStyle.FixedSingle, BackColor = _tempColor, Cursor = Cursors.Hand };
             pnlColor.Click += (s, e) => PickColor(ref _tempColor, pnlColor);
@@ -75,11 +70,9 @@ namespace GIS2025
             this.Controls.Add(pnlColor);
             y += 45;
 
-            // --- 描边设置区域 (GroupBox) ---
             GroupBox grpOutline = new GroupBox() { Text = "描边设置", Location = new Point(padding, y), Size = new Size(410, 100) };
             this.Controls.Add(grpOutline);
 
-            // 4.1 启用描边 (第一行)
             chkOutline = new CheckBox() { Text = "启用描边效果", Location = new Point(20, 25), AutoSize = true };
             chkOutline.CheckedChanged += (s, e) => {
                 pnlOutlineColor.Enabled = chkOutline.Checked;
@@ -88,20 +81,16 @@ namespace GIS2025
             };
             grpOutline.Controls.Add(chkOutline);
 
-            // 4.2 颜色和宽度 (第二行) - 【这里调整了坐标】
             int row2Y = 60;
 
-            // 颜色部分：Label在20，Panel往右移到80 (原来是60)
             Label lblOutColor = new Label() { Text = "颜色:", Location = new Point(20, row2Y + 3), AutoSize = true };
             pnlOutlineColor = new Panel() { Location = new Point(80, row2Y), Size = new Size(50, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand };
             pnlOutlineColor.Click += (s, e) => { if (chkOutline.Checked) PickColor(ref _tempOutlineColor, pnlOutlineColor); };
 
-            // 宽度部分：Label往右移到170，输入框移到220 (留出足够空隙)
             Label lblWidth = new Label() { Text = "宽度:", Location = new Point(170, row2Y + 3), AutoSize = true };
             numOutlineWidth = new NumericUpDown() { Location = new Point(220, row2Y), Width = 60, Minimum = 0, Maximum = 50, DecimalPlaces = 1, Increment = 0.5M };
             numOutlineWidth.ValueChanged += (s, e) => UpdatePreview();
 
-            // 单位提示
             Label lblUnit = new Label() { Text = "pt", Location = new Point(285, row2Y + 3), AutoSize = true };
 
             grpOutline.Controls.Add(lblOutColor);
@@ -111,8 +100,6 @@ namespace GIS2025
             grpOutline.Controls.Add(lblUnit);
 
             y += 120;
-
-            // 5. 预览区
             Label lblPreTitle = new Label() { Text = "预览:", Location = new Point(padding, y), AutoSize = true };
             this.Controls.Add(lblPreTitle);
             y += 25;
@@ -160,12 +147,10 @@ namespace GIS2025
         {
             FontDialog fd = new FontDialog();
 
-            // 显式设置这些属性，防止某些系统环境下对话框行为异常
             fd.ShowColor = false;
-            fd.ShowEffects = false; // 我们只调字体和字号，不在这里调颜色/下划线
+            fd.ShowEffects = false;
             fd.AllowVerticalFonts = false;
 
-            // 确保 _tempFont 不为 null
             fd.Font = _tempFont ?? new Font("Arial", 12);
 
             if (fd.ShowDialog() == DialogResult.OK)
@@ -192,31 +177,24 @@ namespace GIS2025
         {
             if (lblPreview == null || pnlPreviewContainer == null) return;
 
-            // 1. 临时挂起布局，防止闪烁
             pnlPreviewContainer.SuspendLayout();
             lblPreview.SuspendLayout();
 
-            // 2. 更新属性
             lblPreview.Text = txtContent.Text;
 
-            // 关键修复：显式创建一个新 Font 对象赋给 Label，或者强制 Refresh
-            // 有时候直接赋同一个引用的 Font 对象不会触发重绘
+
             lblPreview.Font = _tempFont;
             lblPreview.ForeColor = _tempColor;
-
-            // 3. 恢复布局并强制触发布局计算 (PerformLayout)
-            // 这一步最关键，它会告诉 Panel："嘿，里面的 Label 变大了，快更新滚动条！"
             lblPreview.ResumeLayout();
             pnlPreviewContainer.ResumeLayout();
             pnlPreviewContainer.PerformLayout();
 
-            // 4. 强制重绘
             lblPreview.Invalidate();
         }
 
         private void BtnOk_Click(object sender, EventArgs e)
         {
-            // 将设置回写到对象
+
             _element.Text = txtContent.Text;
             _element.Font = _tempFont;
             _element.Color = _tempColor;

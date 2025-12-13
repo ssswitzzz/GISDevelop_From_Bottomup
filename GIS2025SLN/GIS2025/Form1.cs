@@ -35,35 +35,32 @@ namespace GIS2025
         XExploreActions currentMouseAction = XExploreActions.noaction;
         XExploreActions baseTool = XExploreActions.pan;
 
-        // ==========================================
-        // Layout 相关变量 (新增)
-        // ==========================================
         // 专门用于 Layout 视图的图层树，与 Map 视图分离
         private TreeView treeViewLayout;
         private TreeNode dropTargetNode = null;
-        Point TreeMouseDownLocation; // 记录树控件点击位置，用于判断拖拽
+        Point TreeMouseDownLocation;
 
         public FormMap()
         {
             InitializeComponent();
 
-            // 1. 界面初始化
+            // 界面初始化
             mapBox.Dock = DockStyle.Fill;
             myLayoutControl.Dock = DockStyle.Fill;
             mapBox.Visible = true;
             myLayoutControl.Visible = false;
 
-            // 2. 视图与网络设置
+            // 视图与网络设置
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
             view = new XView(new XExtent(-180, 180, -85, 85), mapBox.ClientRectangle);
 
-            // 3. 底图设置
+            // 底图设置
             string myKey = "5e531967100311fcb8098b759848b71c";
             string url = $"https://t0.tianditu.gov.cn/DataServer?T=vec_w&x={{x}}&y={{y}}&l={{z}}&tk={myKey}";
             basemapLayer = new XTileLayer(url);
             basemapLayer.Name = "天地图矢量";
 
-            // 4. MapBox 事件绑定
+            // MapBox 事件绑定
             mapBox.MouseWheel += mapBox_MouseWheel;
             mapBox.MouseLeave += MapBox_MouseLeave;
             mapBox.MouseDown += mapBox_MouseDown;
@@ -72,11 +69,11 @@ namespace GIS2025
             mapBox.Paint += mapBox_Paint;
             mapBox.SizeChanged += mapBox_SizeChanged;
 
-            // 5. 定时器
+            // 定时器
             timerZoom.Interval = 10; timerZoom.Tick += TimerZoom_Tick;
             timerDownloadCheck.Interval = 500; timerDownloadCheck.Tick += (s, e) => { UpdateMap(); }; timerDownloadCheck.Start();
 
-            // 6. TreeView1 (Map TOC) 初始化
+            // TreeView1 (Map TOC) 初始化
             TreeNode baseNode = new TreeNode(basemapLayer.Name);
             baseNode.Tag = basemapLayer; baseNode.Checked = true;
             treeView1.Nodes.Add(baseNode);
@@ -98,10 +95,10 @@ namespace GIS2025
             treeView1.MouseMove += treeView1_MouseMove;
             treeView1.AfterCheck += treeView1_AfterCheck;
 
-            // 7. 布局控件相关初始化
+            // 布局控件相关初始化
             tabControl1.SelectedIndexChanged += TabControl1_SelectedIndexChanged;
 
-            // 【核心】初始化 Layout 树
+            // 初始化 Layout 树
             InitLayoutTreeView();
 
             // 绑定 LayoutControl 的事件，实现双向同步
@@ -114,19 +111,10 @@ namespace GIS2025
         }
         private void InitButtonIcons()
         {
-            // === 地图操作栏 (假设你在地图页面的按钮叫这些名字) ===
-            // 根据 explore_button_Click 推测
             SetButtonStyle(explore_button, Properties.Resources.漫游);
-            // 根据 btnSelect_Click 推测
             SetButtonStyle(btnSelect, Properties.Resources.选择);
-            // 根据 button_FullExtent_Click 推测
             SetButtonStyle(button_FullExtent, Properties.Resources.全图显示);
-            // 根据 button_ReadShp_Click 推测 (如果有图标的话)
-            SetButtonStyle(button_ReadShp, Properties.Resources.shapefile); // 假设你有打开图标
-
-            // === Layout 布局工具栏 (FlowLayoutPanel 里的按钮) ===
-            // 这里的名字是你设计器里给按钮起的 (Name)
-
+            SetButtonStyle(button_ReadShp, Properties.Resources.shapefile);
             SetButtonStyle(btnAddMapFrame, Properties.Resources.地图框);
             SetButtonStyle(btnAddNorthArrow, Properties.Resources.指北针);
             SetButtonStyle(btnAddScaleBar, Properties.Resources.比例尺);
@@ -134,42 +122,25 @@ namespace GIS2025
             SetButtonStyle(btnAddText, Properties.Resources.文本框);
             SetButtonStyle(btnAddGrid, Properties.Resources.经纬网);
             SetButtonStyle(btnAddExport, Properties.Resources.导出地图);
-
-            // 如果你在 Layout 页面也放了漫游和选择，记得把那两个按钮也加上
-            // 例如：
-            // SetButtonStyle(btnLayoutPan, Properties.Resources.漫游);
-            // SetButtonStyle(btnLayoutSelect, Properties.Resources.选择);
         }
-        // 专门用来给现有按钮“穿衣服”的辅助方法
         private void SetButtonStyle(Button btn, Image icon)
         {
-            if (btn == null) return; // 防止按钮改名了找不到
-                                     // 1. 【关键】强制断开设计器里的 ImageList 关联
-                                     // 如果不加这句，代码里设置的 Image 大小可能会被设计器的设置覆盖
+            if (btn == null) return; 
             btn.ImageList = null;
             int iconSize = 32;
 
-            // 调用缩放方法，把大图变成小图标
             btn.Image = ResizeImage(icon, iconSize);
-
-
-            // 2. 关键：设置图文关系为“图片在文字上方”
+            // 设置图文关系为“图片在文字上方”
             btn.TextImageRelation = TextImageRelation.ImageAboveText;
-
-            // 3. 对齐方式调整 (图片居中，文字在底部)
             btn.ImageAlign = ContentAlignment.BottomCenter;
             btn.TextAlign = ContentAlignment.BottomCenter;
 
-            // 4. 美化外观 (扁平化，去边框)
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
-            btn.BackColor = Color.Transparent; // 或者 Color.White
+            btn.BackColor = Color.Transparent;
 
-            // 5. 确保高度足够 (如果设计器里拉得太矮，图标和文字会重叠)
-            // 如果你在设计器里已经调好了大小，这行可以注释掉
             if (btn.Height < 55) btn.Height = 60;
         }
-        // 辅助方法：高质量调整图片大小
         private Image ResizeImage(Image imgToResize, int size)
         {
             // 获取原图的宽高
@@ -193,29 +164,22 @@ namespace GIS2025
             return (Image)b;
         }
 
-        // ==========================================
-        // 【核心部分】Layout TreeView 逻辑
-        // ==========================================
         private void InitLayoutTreeView()
         {
-            // 1. 动态创建一个新树
             treeViewLayout = new TreeView();
             treeViewLayout.Dock = DockStyle.Fill;
             treeViewLayout.DrawMode = TreeViewDrawMode.OwnerDrawAll;
             treeViewLayout.ItemHeight = 26;
-            treeViewLayout.Visible = false; // 初始隐藏
-            treeViewLayout.CheckBoxes = false; // 自绘眼睛
-            treeViewLayout.AllowDrop = true;   // 开启拖拽
-            treeViewLayout.HideSelection = false; // 失去焦点依然高亮
+            treeViewLayout.Visible = false;
+            treeViewLayout.CheckBoxes = false;
+            treeViewLayout.AllowDrop = true;  
+            treeViewLayout.HideSelection = false; 
 
-            // 2. 将其添加到界面 (覆盖在 treeView1 上面)
             if (treeView1.Parent != null)
             {
                 treeView1.Parent.Controls.Add(treeViewLayout);
                 treeViewLayout.BringToFront();
             }
-
-            // 3. 【重点】手动订阅事件
 
             // 复用绘制逻辑(画眼睛和背景)
             treeViewLayout.DrawNode += treeView1_DrawNode;
@@ -232,8 +196,6 @@ namespace GIS2025
             treeViewLayout.DragOver += TreeViewLayout_DragOver;
             treeViewLayout.DragDrop += TreeViewLayout_DragDrop;
         }
-
-        // 刷新 Layout 树 (根据 Page.Elements 生成)
         private void PopulateLayoutTree()
         {
             treeViewLayout.BeginUpdate();
@@ -246,7 +208,7 @@ namespace GIS2025
                 XLayoutElement ele = elements[i];
                 TreeNode node = new TreeNode(ele.Name);
                 node.Tag = ele;
-                node.Checked = ele.Visible; // Checked 借用来存显隐状态
+                node.Checked = ele.Visible; 
                 treeViewLayout.Nodes.Add(node);
 
                 if (ele.IsSelected)
@@ -257,7 +219,6 @@ namespace GIS2025
             treeViewLayout.EndUpdate();
         }
 
-        // 仅更新树的选中状态
         private void UpdateLayoutTreeSelection()
         {
             var selectedEle = myLayoutControl.SelectedElement;
@@ -275,11 +236,8 @@ namespace GIS2025
                 }
             }
         }
-
-        // Layout 树点击事件
         private void TreeViewLayout_MouseDown(object sender, MouseEventArgs e)
         {
-            // 【技巧】使用 (0, e.Y) 强制获取当前行，不管点的是字还是空白
             TreeNode node = treeViewLayout.GetNodeAt(0, e.Y);
             if (node == null) return;
 
@@ -291,14 +249,14 @@ namespace GIS2025
 
             if (e.Button == MouseButtons.Left)
             {
-                // 1. 判断是否点击眼睛 (假设眼睛区域在文字左侧 30px 内)
+                // 判断是否点击眼睛
                 if (e.X < node.Bounds.X)
                 {
                     node.Checked = !node.Checked;
                     ele.Visible = node.Checked; // 同步 Visible
 
                     treeViewLayout.Invalidate();
-                    myLayoutControl.Refresh(); // 【修改】强制立即刷新
+                    myLayoutControl.Refresh();
                     return;
                 }
 
@@ -325,8 +283,6 @@ namespace GIS2025
                 cms.Show(treeViewLayout, e.Location);
             }
         }
-
-        // 【关键新增】Layout 树鼠标移动事件 (手动触发拖拽)
         private void TreeViewLayout_MouseMove(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left || treeViewLayout.SelectedNode == null) return;
@@ -358,7 +314,6 @@ namespace GIS2025
         }
 
         // Layout 树拖拽放下 (处理 Z-Order)
-        // 【关键修复点】
         private void TreeViewLayout_DragDrop(object sender, DragEventArgs e)
         {
             TreeNode srcNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
@@ -370,7 +325,6 @@ namespace GIS2025
 
             if (srcNode == null || srcNode.TreeView != treeViewLayout) return;
 
-            // 1. 调整 TreeView 中的节点顺序
             if (targetNode == null)
             {
                 treeViewLayout.Nodes.Remove(srcNode);
@@ -383,10 +337,6 @@ namespace GIS2025
             }
             treeViewLayout.SelectedNode = srcNode;
 
-            // 2. 根据 TreeView 的新顺序，重构 myLayoutControl.Page.Elements 列表
-            // 逻辑：TreeView 最上面的节点 (Index 0) 对应最顶层 (Elements 的最后一个)
-            // 列表通常是：0 (最底层) -> Count-1 (最顶层)
-            // 所以我们倒序遍历 TreeView，把节点加到 List 里
             myLayoutControl.Page.Elements.Clear();
 
             for (int i = treeViewLayout.Nodes.Count - 1; i >= 0; i--)
@@ -395,15 +345,9 @@ namespace GIS2025
                 if (ele != null) myLayoutControl.Page.Elements.Add(ele);
             }
 
-            // 3. 【核心修复】强制同步重绘
-            // 之前用 Invalidate() 可能会延迟，导致松手瞬间看不到变化
-            // 改用 Refresh() 立即执行 Paint
             myLayoutControl.Refresh();
         }
 
-        // ==========================================
-        // Tab 切换逻辑
-        // ==========================================
         private void TabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (tabControl1.SelectedTab.Text == "Layout")
@@ -441,9 +385,6 @@ namespace GIS2025
             }
         }
 
-        // ==========================================
-        // Map 视图原有逻辑 (保持不变)
-        // ==========================================
         private void UpdateSelectionStatus()
         {
             int totalCount = 0;
@@ -455,7 +396,6 @@ namespace GIS2025
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality; // 抗锯齿
             g.Clear(Color.White);
 
-            // 倒序遍历（和原来一样）
             for (int i = treeView1.Nodes.Count - 1; i >= 0; i--)
             {
                 TreeNode node = treeView1.Nodes[i];
@@ -478,16 +418,14 @@ namespace GIS2025
         {
             if (view == null || mapBox.Width == 0 || mapBox.Height == 0) return;
 
-            // 确保视图窗口大小正确
             view.UpdateMapWindow(mapBox.ClientRectangle);
 
-            // 重新生成缓存图片 (backwindow)
             if (backwindow != null) backwindow.Dispose();
             backwindow = new Bitmap(mapBox.Width, mapBox.Height);
 
             using (Graphics g = Graphics.FromImage(backwindow))
             {
-                DrawMapContent(g); // 【修改】调用通用绘图方法
+                DrawMapContent(g);
             }
 
             mapBox.Invalidate();
@@ -495,12 +433,12 @@ namespace GIS2025
 
         private void mapBox_Paint(object sender, PaintEventArgs e)
         {
-            // 1. 如果正在漫游，直接实时画！(解决割裂感的核心)
+            // 如果正在漫游，直接实时画
             if (currentMouseAction == XExploreActions.pan)
             {
-                DrawMapContent(e.Graphics); // 直接调用绘图，画出视野外的新东西
+                DrawMapContent(e.Graphics); 
             }
-            // 2. 如果是静态或者拉框，画缓存图片 (节省性能)
+            // 如果是静态或者拉框，画缓存图片
             else
             {
                 if (backwindow != null)
@@ -508,7 +446,6 @@ namespace GIS2025
                     e.Graphics.DrawImage(backwindow, 0, 0);
                 }
 
-                // 绘制拉框的红/蓝框
                 if ((currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select) &&
                     Math.Abs(MouseDownLocation.X - MouseMovingLocation.X) > 0)
                 {
@@ -527,7 +464,7 @@ namespace GIS2025
             if (e.Button == MouseButtons.Right) return;
 
             MouseDownLocation = e.Location;
-            MouseMovingLocation = e.Location; // 【新增】初始化移动位置
+            MouseMovingLocation = e.Location;
 
             if (Control.ModifierKeys == Keys.Shift) { currentMouseAction = XExploreActions.zoominbybox; return; }
             if (e.Button == MouseButtons.Middle) { currentMouseAction = XExploreActions.pan; mapBox.Cursor = Cursors.Hand; return; }
@@ -540,30 +477,22 @@ namespace GIS2025
 
         private void mapBox_MouseMove(object sender, MouseEventArgs e)
         {
-            // 显示坐标
+
             XVertex v = view.ToMapVertex(e.Location);
             lblCoordinates.Text = $"X: {v.x:F2}, Y: {v.y:F2}";
 
             if (currentMouseAction == XExploreActions.noaction) return;
-
-            // 1. 漫游逻辑 (实时更新)
             if (currentMouseAction == XExploreActions.pan)
             {
-                // 计算这一瞬间的位移 (从上一次鼠标位置 -> 当前位置)
-                XVertex v1 = view.ToMapVertex(MouseMovingLocation); // 上一帧的位置
-                XVertex v2 = view.ToMapVertex(e.Location);          // 当前的位置
 
-                // 【核心】直接移动视图中心
+                XVertex v1 = view.ToMapVertex(MouseMovingLocation);
+                XVertex v2 = view.ToMapVertex(e.Location);      
+
                 view.OffsetCenter(v1, v2);
 
-                // 更新“上一帧位置”为“当前位置”，以便下一次计算增量
                 MouseMovingLocation = e.Location;
-                // 注意：这里不用 MouseDownLocation 了，因为是连续增量移动
-
-                // 强制立即重绘 (不用 UpdateMap，因为太慢，直接 Invalidate 触发 Paint)
                 mapBox.Invalidate();
             }
-            // 2. 拉框放大/选择逻辑 (保持原样)
             else if (currentMouseAction == XExploreActions.zoominbybox || currentMouseAction == XExploreActions.select)
             {
                 MouseMovingLocation = e.Location;
@@ -579,7 +508,6 @@ namespace GIS2025
                 return;
             }
 
-            // 处理拉框放大
             if (currentMouseAction == XExploreActions.zoominbybox)
             {
                 XVertex v1 = view.ToMapVertex(MouseDownLocation);
@@ -587,17 +515,13 @@ namespace GIS2025
                 if (Math.Abs(MouseDownLocation.X - e.X) > 2)
                     view.Update(new XExtent(v1, v2), mapBox.ClientRectangle);
             }
-            // 【修改】漫游结束时，View 已经在 MouseMove 里移好了，这里什么都不用做
             else if (currentMouseAction == XExploreActions.pan)
             {
-                // 这里的 OffsetCenter 逻辑删掉，因为已经在 Move 里做过了
             }
-            // 处理选择
             else if (currentMouseAction == XExploreActions.select)
             {
                 XVertex v1 = view.ToMapVertex(MouseDownLocation);
                 XVertex v2 = view.ToMapVertex(e.Location);
-                // ... (选择逻辑保持不变) ...
                 int dx = Math.Abs(MouseDownLocation.X - e.X);
                 int dy = Math.Abs(MouseDownLocation.Y - e.Y);
                 bool modify = (Control.ModifierKeys == Keys.Control);
@@ -624,7 +548,6 @@ namespace GIS2025
             currentMouseAction = XExploreActions.noaction;
             mapBox.Cursor = (baseTool == XExploreActions.pan) ? Cursors.Hand : Cursors.Default;
 
-            // 最后生成一次静态缓存，供静止时显示
             UpdateMap();
         }
 
@@ -662,12 +585,10 @@ namespace GIS2025
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Filter = "Shapefile|*.shp";
 
-            // 1. 【必须】开启多选
             dialog.Multiselect = true;
 
             if (dialog.ShowDialog() != DialogResult.OK) return;
 
-            // 记录初始数量
             int initialCount = layers.Count;
 
             foreach (string f in dialog.FileNames)
@@ -681,7 +602,6 @@ namespace GIS2025
                 layers.Add(l);
             }
 
-            // 2. 智能缩放：如果是从无到有，自动全图显示
             if (initialCount == 0 && layers.Count > 0)
             {
                 button_FullExtent_Click(null, null);
@@ -690,7 +610,6 @@ namespace GIS2025
             UpdateMap();
         }
 
-        // 布局工具按钮事件
         private void btnAddMapFrame_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartCreateMapFrame(); }
         private void btnAddNorthArrow_Click(object sender, EventArgs e) { cmsNorthArrow.Show(btnAddNorthArrow, 0, btnAddNorthArrow.Height); }
         private void toolStripMenuItemSimple_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartCreateNorthArrow(NorthArrowStyle.Simple); }
@@ -703,7 +622,6 @@ namespace GIS2025
         private void btnAddGrid_Click(object sender, EventArgs e) { SwitchToLayout(); myLayoutControl.StartToggleGrid(); MessageBox.Show("请点击地图框以 显示/隐藏 经纬网"); }
         private void SwitchToLayout() { if (tabControl1.SelectedTab != tabPage2) tabControl1.SelectedTab = tabPage2; }
 
-        // treeView1 的绘制和事件 (Layout树也复用了一部分)
         private void treeView1_DrawNode(object sender, DrawTreeNodeEventArgs e)
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -737,7 +655,7 @@ namespace GIS2025
             e.Effect = DragDropEffects.Move;
         }
 
-        // 地图图层拖拽 (如果你也想让地图图层拖拽时，Layout界面如果有地图框也能实时更新，这里也加了 Refresh)
+        // 地图图层拖拽
         private void treeView1_DragDrop(object sender, DragEventArgs e)
         {
             TreeNode srcNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
@@ -755,7 +673,7 @@ namespace GIS2025
                 if (treeView1.Nodes[i].Tag is XVectorLayer vl) layers.Add(vl);
             }
             UpdateMap();
-            myLayoutControl.Refresh(); // 【修改】这里也改成了 Refresh，防止切换回 Layout 时显示旧图像
+            myLayoutControl.Refresh();
         }
 
         private void treeView1_DragLeave(object sender, EventArgs e) { dropTargetNode = null; treeView1.Invalidate(); }
@@ -874,11 +792,11 @@ namespace GIS2025
 
         private void btnAddExport_Click(object sender, EventArgs e)
         {
-            // 1. 弹出设置窗口
+            // 弹出设置窗口
             FormExport frm = new FormExport();
             if (frm.ShowDialog() == DialogResult.OK)
             {
-                // 2. 弹出保存文件窗口
+                // 弹出保存文件窗口
                 SaveFileDialog sfd = new SaveFileDialog();
                 string ext = frm.ExportFormat.ToString().ToLower();
                 if (ext == "jpeg") ext = "jpg";
@@ -890,8 +808,6 @@ namespace GIS2025
                 {
                     try
                     {
-                        // 3. 开始导出
-                        // 鼠标变漏斗，防止用户乱点
                         this.Cursor = Cursors.WaitCursor;
 
                         myLayoutControl.ExportToImage(sfd.FileName, frm.ExportDPI, frm.ExportFormat, frm.ExportQuality);
@@ -899,7 +815,7 @@ namespace GIS2025
                         this.Cursor = Cursors.Default;
                         MessageBox.Show("导出成功！\n文件保存在: " + sfd.FileName, "完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                        // 可选：导出完自动打开图片
+                        // 导出完自动打开图片
                         System.Diagnostics.Process.Start(sfd.FileName);
                     }
                     catch (Exception ex)
@@ -918,14 +834,10 @@ namespace GIS2025
             else if (treeView1.SelectedNode != null) l = treeView1.SelectedNode.Tag as XVectorLayer;
             if (l != null) new FormAttribute(l).Show();
         }
-        // 这就是你按钮点击事件里唯一需要写的代码
         private void btnAddText_Click(object sender, EventArgs e)
         {
-            // 1. 如果不在 Layout 页面，先切过去（可选）
             if (tabControl1.SelectedTab != tabPage2)
                 tabControl1.SelectedTab = tabPage2;
-
-            // 2. 告诉 LayoutControl：准备开始画文字！
             myLayoutControl.StartCreateText();
         }
     }

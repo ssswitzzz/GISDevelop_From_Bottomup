@@ -6,9 +6,6 @@ using XGIS;
 
 namespace XGIS
 {
-    // ==========================================
-    // 1. 布局元素基类
-    // ==========================================
     public abstract class XLayoutElement
     {
         public RectangleF Bounds;
@@ -40,9 +37,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 2. 地图框
-    // ==========================================
     public class XMapFrame : XLayoutElement
     {
         public List<XVectorLayer> Layers;
@@ -145,9 +139,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 3. 指北针 (核心修复：去除双重缩放)
-    // ==========================================
     public enum NorthArrowStyle { Simple, Circle, Star }
 
     public class XNorthArrow : XLayoutElement
@@ -168,19 +159,13 @@ namespace XGIS
             RectangleF screenRect = MMToPixel(screenDpi, zoomScale, offsetX, offsetY);
             var state = g.Save();
 
-            // 1. 移动坐标系到指北针中心
             float centerX = screenRect.X + screenRect.Width / 2;
             float centerY = screenRect.Y + screenRect.Height / 2;
             g.TranslateTransform(centerX, centerY);
 
-            // 2. 缩放坐标系 (这步已经包含了 DPI 的放大效果)
             float size = Math.Min(screenRect.Width, screenRect.Height);
-            float scale = size / 100f; // 假设逻辑大小为 100x100
+            float scale = size / 100f;
             g.ScaleTransform(scale, scale);
-
-            // 3. 绘制
-            // 【修正】线宽设为固定值 (比如 2)，因为坐标系已经放大了，线自然会变粗
-            // 【修正】字体单位设为 Pixel，防止 GDI+ 再次根据 DPI 放大字体
             using (Pen p = new Pen(Color.Black, 2f))
             using (SolidBrush b = new SolidBrush(Color.Black))
             {
@@ -190,7 +175,6 @@ namespace XGIS
                         g.DrawLine(p, 0, 40, 0, -40);
                         g.DrawLine(p, 0, -40, -15, -10);
                         g.DrawLine(p, 0, -40, 15, -10);
-                        // Font Size 24 Pixel 大概对应屏幕上的 18-20pt，但在放大坐标系中会合适
                         using (Font f = new Font("Arial", 24, FontStyle.Bold, GraphicsUnit.Pixel))
                         {
                             g.DrawString("N", f, b, -8, -75);
@@ -223,9 +207,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 4. 比例尺
-    // ==========================================
     public enum ScaleBarStyle { Line, AlternatingBar, DoubleLine }
 
     public class XScaleBar : XLayoutElement
@@ -323,9 +304,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 5. 文本元素
-    // ==========================================
     public class XTextElement : XLayoutElement
     {
         public string Text = "文本";
@@ -372,9 +350,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 6. 图例元素 (完美高DPI版)
-    // ==========================================
     public class LayoutLegend : XLayoutElement
     {
         public XMapFrame LinkedMapFrame;
@@ -493,9 +468,6 @@ namespace XGIS
         }
     }
 
-    // ==========================================
-    // 7. 辅助工具 (数学计算 & 页面)
-    // ==========================================
     public static class XGISMath
     {
         public static double CalculateNiceInterval(double range, int targetTickCount)

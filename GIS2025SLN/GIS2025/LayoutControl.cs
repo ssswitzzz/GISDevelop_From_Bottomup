@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Imaging; // 导出功能需要这个
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 using System.Linq;
 using XGIS;
@@ -13,7 +13,7 @@ namespace GIS2025
     {
         None, PanPaper, Select, CreateMapFrame, ResizeElement, PanMapContent,
         CreateNorthArrow, CreateScaleBar, ToggleGrid, CreateText,
-        CreateLegend // 【新增】图例工具
+        CreateLegend
     }
 
     public enum ResizeHandle { None, TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left }
@@ -66,7 +66,6 @@ namespace GIS2025
 
             InitContextMenu();
 
-            // 绑定事件
             layoutBox.MouseWheel += LayoutBox_MouseWheel;
             layoutBox.MouseDown += LayoutBox_MouseDown;
             layoutBox.MouseMove += LayoutBox_MouseMove;
@@ -123,14 +122,12 @@ namespace GIS2025
             layoutBox.Invalidate();
         }
 
-        // 工具方法
         public void StartCreateMapFrame() { CurrentTool = LayoutTool.CreateMapFrame; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartCreateNorthArrow(NorthArrowStyle style) { CurrentTool = LayoutTool.CreateNorthArrow; _pendingNorthArrowStyle = style; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartCreateScaleBar(ScaleBarStyle style) { CurrentTool = LayoutTool.CreateScaleBar; _pendingScaleBarStyle = style; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
         public void StartToggleGrid() { CurrentTool = LayoutTool.ToggleGrid; layoutBox.Cursor = Cursors.Hand; DeselectAll(); }
         public void StartCreateText() { CurrentTool = LayoutTool.CreateText; layoutBox.Cursor = Cursors.IBeam; DeselectAll(); }
 
-        // 【新增】开始创建图例
         public void StartCreateLegend() { CurrentTool = LayoutTool.CreateLegend; layoutBox.Cursor = Cursors.Cross; DeselectAll(); }
 
         private void DeselectAll()
@@ -153,7 +150,6 @@ namespace GIS2025
             }
         }
 
-        // ================= 鼠标事件 =================
         private void LayoutBox_MouseDown(object sender, MouseEventArgs e)
         {
             this.Focus();
@@ -167,7 +163,6 @@ namespace GIS2025
                 return;
             }
 
-            // 【修改】加入 CreateLegend 到屏蔽列表
             if (CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow ||
                 CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.ToggleGrid ||
                 CurrentTool == LayoutTool.CreateText || CurrentTool == LayoutTool.CreateLegend) return;
@@ -221,7 +216,6 @@ namespace GIS2025
             float dpi = 96; using (Graphics g = layoutBox.CreateGraphics()) { dpi = g.DpiX; }
             float pixelPerMM = dpi / 25.4f;
 
-            // 1. 地图漫游模式
             if (activeMapFrame != null)
             {
                 if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle)
@@ -241,8 +235,6 @@ namespace GIS2025
                 return;
             }
 
-            // 2. 创建元素模式
-            // 【修改】加入 CreateLegend
             bool isCreating = CurrentTool == LayoutTool.CreateMapFrame || CurrentTool == LayoutTool.CreateNorthArrow ||
                               CurrentTool == LayoutTool.CreateScaleBar || CurrentTool == LayoutTool.CreateText ||
                               CurrentTool == LayoutTool.CreateLegend;
@@ -253,7 +245,6 @@ namespace GIS2025
                 return;
             }
 
-            // 3. Resize 模式
             if (CurrentTool == LayoutTool.ResizeElement && selectedElement != null)
             {
                 float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
@@ -287,7 +278,6 @@ namespace GIS2025
                 selectedElement.Bounds = newBounds;
                 layoutBox.Invalidate();
             }
-            // 4. Move 模式
             else if (CurrentTool == LayoutTool.Select && e.Button == MouseButtons.Left && selectedElement != null)
             {
                 float dx = (e.X - mouseDownLoc.X) / zoomScale / pixelPerMM;
@@ -296,7 +286,6 @@ namespace GIS2025
                 selectedElement.Bounds = CheckAndApplySnap(proposedBounds, pixelPerMM);
                 layoutBox.Invalidate();
             }
-            // 5. Pan Paper 模式
             else if (CurrentTool == LayoutTool.PanPaper && (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle))
             {
                 offsetX += e.X - mouseDownLoc.X;
@@ -373,7 +362,6 @@ namespace GIS2025
                 NotifySelectionChanged();
             };
 
-            // 创建文字逻辑
             if (CurrentTool == LayoutTool.CreateText && e.Button == MouseButtons.Left)
             {
                 string txt = ShowInputBox("请输入文本内容:", "添加文字", "Text");
@@ -393,7 +381,6 @@ namespace GIS2025
                 return;
             }
 
-            // 创建地图框
             if (CurrentTool == LayoutTool.CreateMapFrame && e.Button == MouseButtons.Left)
             {
                 if (screenRect.Width > 10 && screenRect.Height > 10)
@@ -408,7 +395,6 @@ namespace GIS2025
                 }
                 CurrentTool = LayoutTool.Select; layoutBox.Invalidate();
             }
-            // 创建指北针
             else if (CurrentTool == LayoutTool.CreateNorthArrow && e.Button == MouseButtons.Left)
             {
                 RectangleF mmRect;
@@ -417,7 +403,7 @@ namespace GIS2025
                 FinishCreation(new XNorthArrow(mmRect, _pendingNorthArrowStyle));
                 return;
             }
-            // 创建比例尺
+
             else if (CurrentTool == LayoutTool.CreateScaleBar && e.Button == MouseButtons.Left)
             {
                 XMapFrame target = null;
@@ -430,10 +416,9 @@ namespace GIS2025
                 FinishCreation(new XScaleBar(mmRect, _pendingScaleBarStyle, target));
                 return;
             }
-            // 创建图例 【新增】
+
             else if (CurrentTool == LayoutTool.CreateLegend && e.Button == MouseButtons.Left)
             {
-                // 1. 寻找关联的地图框
                 XMapFrame target = activeMapFrame;
                 if (target == null) target = Page.Elements.FirstOrDefault(x => x is XMapFrame) as XMapFrame;
 
@@ -446,7 +431,7 @@ namespace GIS2025
                     return;
                 }
 
-                // 2. 计算大小
+
                 RectangleF mmRect;
                 if (screenRect.Width < 5)
                 {
@@ -455,11 +440,9 @@ namespace GIS2025
                 }
                 else { mmRect = PixelToMMRect(screenRect, dpi); }
 
-                // 3. 创建图例
                 FinishCreation(new LayoutLegend(target) { Bounds = mmRect });
                 return;
             }
-            // 经纬网开关
             else if (CurrentTool == LayoutTool.ToggleGrid && e.Button == MouseButtons.Left)
             {
                 if (CheckHitElement(e.Location, dpi / 25.4f) && selectedElement is XMapFrame mapFrame)
@@ -484,7 +467,7 @@ namespace GIS2025
             float dpi = e.Graphics.DpiX;
             float pixelPerMM = dpi / 25.4f;
 
-            // 【关键】Page.Draw 需要传入当前屏幕 DPI，以便在屏幕上正确显示
+            // Page.Draw 需要传入当前屏幕 DPI，以便在屏幕上正确显示
             Page.Draw(e.Graphics, dpi, zoomScale, offsetX, offsetY);
 
             if (activeMapFrame == null && selectedElement != null && selectedElement.IsSelected) DrawSelectionHandles(e.Graphics, dpi);
@@ -494,7 +477,6 @@ namespace GIS2025
                 using (Pen p = new Pen(Color.Red, 2) { DashStyle = DashStyle.Dash }) e.Graphics.DrawRectangle(p, rect.X - 2, rect.Y - 2, rect.Width + 4, rect.Height + 4);
             }
 
-            // 【修改】加入 CreateLegend 绘制拖拽框
             bool isCreating = CurrentTool == LayoutTool.CreateMapFrame ||
                               CurrentTool == LayoutTool.CreateNorthArrow ||
                               CurrentTool == LayoutTool.CreateScaleBar ||
@@ -509,7 +491,6 @@ namespace GIS2025
             }
             DrawRulers(e.Graphics, dpi, zoomScale, offsetX, offsetY);
 
-            // 绘制智能吸附线
             if (activeGuides.Count > 0 && (CurrentTool == LayoutTool.Select || CurrentTool == LayoutTool.ResizeElement))
             {
                 using (Pen guidePen = new Pen(Color.DeepSkyBlue, 1) { DashStyle = DashStyle.DashDot })
@@ -740,18 +721,14 @@ namespace GIS2025
             return promptForm.ShowDialog() == DialogResult.OK ? textBox.Text : "";
         }
 
-        // ==========================================
-        // 核心导出逻辑 (关键方法)
-        // ==========================================
         public void ExportToImage(string filename, int dpi, ImageFormat format, long quality)
         {
-            // 1. 计算目标像素尺寸
+            // 计算目标像素尺寸
             // 像素 = 毫米 / 25.4 * DPI
             float pixelPerMM = dpi / 25.4f;
             int widthPx = (int)(Page.WidthMM * pixelPerMM);
             int heightPx = (int)(Page.HeightMM * pixelPerMM);
 
-            // 2. 创建高清大图
             using (Bitmap bitmap = new Bitmap(widthPx, heightPx))
             {
                 // 设置 Bitmap 自身的分辨率元数据
@@ -759,18 +736,18 @@ namespace GIS2025
 
                 using (Graphics g = Graphics.FromImage(bitmap))
                 {
-                    // 3. 设置绘图质量
+                    // 设置绘图质量
                     g.SmoothingMode = SmoothingMode.HighQuality;
                     g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
                     g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-                    // 4. 【核心魔法】调用 Page.Draw
-                    // 传入导出的高 DPI，缩放 1.0 (因为我们是画满整张图)，偏移 0
+                    // 调用 Page.Draw
+                    // 传入导出的高 DPI，缩放 1.0，偏移 0
                     Page.Draw(g, dpi, 1.0f, 0, 0);
                 }
 
-                // 5. 处理 JPEG 压缩质量
+                // 处理 JPEG 压缩质量
                 if (format == ImageFormat.Jpeg)
                 {
                     EncoderParameters myEncoderParameters = new EncoderParameters(1);
@@ -780,13 +757,10 @@ namespace GIS2025
                 }
                 else
                 {
-                    // 其他格式直接保存
                     bitmap.Save(filename, format);
                 }
             }
         }
-
-        // 辅助：获取编码器信息
         private ImageCodecInfo GetEncoder(ImageFormat format)
         {
             ImageCodecInfo[] codecs = ImageCodecInfo.GetImageEncoders();

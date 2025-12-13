@@ -8,8 +8,6 @@ namespace GIS2025
     public partial class FormLabelProperty : Form
     {
         private XVectorLayer _layer;
-
-        // 临时存储设置，点击确定后再应用到图层
         private Font _tempFont;
         private Color _tempColor;
         private Color _tempOutlineColor;
@@ -19,7 +17,6 @@ namespace GIS2025
             InitializeComponent();
             _layer = layer;
 
-            // 初始化界面控件的值
             _tempFont = _layer.LabelThematic.LabelFont;
             _tempColor = _layer.LabelThematic.LabelBrush.Color;
             _tempOutlineColor = _layer.LabelThematic.OutlineColor;
@@ -87,8 +84,6 @@ namespace GIS2025
             _layer.LabelThematic.LabelBrush = new SolidBrush(_tempColor);
             _layer.LabelThematic.UseOutline = chkOutline.Checked;
             _layer.LabelThematic.OutlineColor = _tempOutlineColor;
-
-            // 顺便把注记开关打开
             _layer.LabelOrNot = true;
 
             this.DialogResult = DialogResult.OK;
